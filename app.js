@@ -108,11 +108,44 @@ function buildFourOptions(targetLang, difficultyOverride) {
       distractors.push(cand);
     }
   } else {
-    const sameScriptAndFamily = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family === targetLang.family));
-    const sameScriptOnly = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
-    for (const cand of [...sameScriptAndFamily, ...sameScriptOnly]) {
+    // Hard Mode:
+    // 1. Exact same script + same language family (preferring active pool first, then full database)
+    const poolSameScriptFamily = shuffleArray(others.filter(l => l.script === targetLang.script && l.family === targetLang.family));
+    const allSameScriptFamily = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family === targetLang.family));
+
+    // 2. Exact same script + different family (preferring active pool first, then full database)
+    const poolSameScriptOnly = shuffleArray(others.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
+    const allSameScriptOnly = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
+
+    // 3. Visually similar Macro-Script fallback (when exact script has < 3 matches)
+    const matchingMacroGroups = (typeof HARD_MACRO_SCRIPT_GROUPS !== 'undefined' ? HARD_MACRO_SCRIPT_GROUPS : [])
+      .filter(group => group.includes(targetLang.script));
+    const macroScripts = new Set();
+    matchingMacroGroups.forEach(group => group.forEach(s => {
+      if (s !== targetLang.script) macroScripts.add(s);
+    }));
+
+    const poolMacroMatches = shuffleArray(others.filter(l => macroScripts.has(l.script)));
+    const allMacroMatches = shuffleArray(allOthers.filter(l => macroScripts.has(l.script)));
+
+    // 4. Same language family across scripts before final random fallback
+    const sameFamilyFallback = shuffleArray(others.filter(l => l.family === targetLang.family));
+
+    const prioritizedHardCandidates = [
+      ...poolSameScriptFamily,
+      ...allSameScriptFamily,
+      ...poolSameScriptOnly,
+      ...allSameScriptOnly,
+      ...poolMacroMatches,
+      ...allMacroMatches,
+      ...sameFamilyFallback
+    ];
+
+    for (const cand of prioritizedHardCandidates) {
       if (distractors.length >= 3) break;
-      if (!distractors.some(d => d.code === cand.code)) distractors.push(cand);
+      if (!distractors.some(d => d.code === cand.code)) {
+        distractors.push(cand);
+      }
     }
   }
 
