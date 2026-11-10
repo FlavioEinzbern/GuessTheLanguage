@@ -7,7 +7,7 @@
  * background prefetch queue.
  */
 
-function isNaturalLanguageParagraph(paragraph, langObj) {
+function isNaturalLanguageParagraph(paragraph, langObj, allowPureKanji = false) {
   // Inspect the visible portion (up to 600 chars) so what the player sees is guaranteed clean
   const sample = paragraph.slice(0, 600);
   const nonSpaceChars = sample.replace(/\s+/g, '');
@@ -40,9 +40,9 @@ function isNaturalLanguageParagraph(paragraph, langObj) {
   if (nativeLetterCount / letters.length < 0.94) return false;
 
   // Special check for Japanese:
-  // In Easy & Medium modes, ensure Hiragana or Katakana is present (>=15%).
-  // In Hard mode, allow paragraphs with up to 100% Kanji so players can't rely solely on Kana.
-  if (langObj?.code === 'ja' && state.config.difficulty !== 'hard') {
+  // Standard paragraphs require Hiragana or Katakana (>=15%).
+  // When allowPureKanji is true (for the Hard Mode variant), 100% Kanji is allowed.
+  if (langObj?.code === 'ja' && !allowPureKanji) {
     const kanaMatches = sample.match(/[\p{Script=Hiragana}\p{Script=Katakana}]/gu) || [];
     if (kanaMatches.length / letters.length < 0.15) return false;
   }
@@ -78,14 +78,6 @@ function buildKanjiOnlyParagraph(extractText) {
 function findStrictCleanParagraph(extractText, langObj) {
   if (!extractText || typeof extractText !== 'string') return null;
 
-  // In Hard Mode, Japanese has a ~40% chance to present a 100% Kanji passage (and ~60% normal mixed Kanji/Kana)
-  if (langObj?.code === 'ja' && state.config.difficulty === 'hard' && Math.random() < 0.4) {
-    const pureKanjiPara = buildKanjiOnlyParagraph(extractText);
-    if (pureKanjiPara && isNaturalLanguageParagraph(pureKanjiPara, langObj)) {
-      return pureKanjiPara;
-    }
-  }
-
   const paragraphs = extractText
     .split(/\n+/)
     .map(p => p.trim())
@@ -97,7 +89,7 @@ function findStrictCleanParagraph(extractText, langObj) {
     // Reject list/heading lines or stub markers
     if (/^(==|\*|\d+\.|•)/.test(p)) continue;
     // Reject paragraphs with excessive numbers or characters foreign to the selected language
-    if (!isNaturalLanguageParagraph(p, langObj)) continue;
+    if (!isNaturalLanguageParagraph(p, langObj, false)) continue;
     return p;
   }
   return null;
@@ -105,6 +97,7 @@ function findStrictCleanParagraph(extractText, langObj) {
 
 /**
  * Queries a single random Wikipedia page for the given language object.
+ * Pre-generates answer options for all 3 difficulties so switching difficulty never resets the queue.
  */
 async function fetchSingleRandomWikiCandidate(langObj) {
   const endpoint = `https://${langObj.code}.wikipedia.org/w/api.php?action=query&generator=random&grnnamespace=0&grnlimit=1&prop=extracts|info&inprop=url&explaintext=1&exsectionformat=plain&format=json&origin=*`;
@@ -121,9 +114,18 @@ async function fetchSingleRandomWikiCandidate(langObj) {
       const page = pages[pageId];
       const cleanPara = findStrictCleanParagraph(page?.extract, langObj);
       if (cleanPara) {
+        let hardParagraph = null;
+        if (langObj.code === 'ja' && Math.random() < 0.4) {
+          const pureKanji = buildKanjiOnlyParagraph(page?.extract);
+          if (pureKanji && isNaturalLanguageParagraph(pureKanji, langObj, true)) {
+            hardParagraph = pureKanji;
+          }
+        }
         return {
           targetLang: langObj,
           paragraph: cleanPara,
+          hardParagraph,
+          optionsByDifficulty: buildAllDifficultyOptions(langObj),
           articleTitle: page.title || 'Wikipedia',
           articleUrl: page.fullurl || `https://${langObj.code}.wikipedia.org/wiki/${encodeURIComponent(page.title || '')}`
         };
@@ -136,12 +138,39 @@ async function fetchSingleRandomWikiCandidate(langObj) {
 }
 
 /**
- * Generates a complete valid article round by firing concurrent requests against the active pool.
+ * Returns the candidate target languages excluding already-queued languages
+ * and (in 10 Tries mode) any language already played in the current session.
+ */
+function getEligibleTargetLanguages() {
+  const pool = getActiveLanguagePool();
+  const excludedCodes = new Set();
+
+  // Never duplicate a language currently sitting in the prefetch buffer
+  state.prefetchQueue.forEach(item => {
+    if (item?.targetLang?.code) excludedCodes.add(item.targetLang.code);
+  });
+
+  // In 10 Tries mode, never repeat a language already played or currently active on screen
+  if (state.config.mode === 'ten_tries') {
+    state.history.forEach(h => {
+      if (h?.targetLang?.code) excludedCodes.add(h.targetLang.code);
+    });
+    if ((state.status === 'playing' || state.status === 'revealed') && state.currentQuestion?.targetLang?.code) {
+      excludedCodes.add(state.currentQuestion.targetLang.code);
+    }
+  }
+
+  const eligible = pool.filter(l => !excludedCodes.has(l.code));
+  return eligible.length > 0 ? eligible : pool;
+}
+
+/**
+ * Generates a complete valid article round by firing concurrent requests against the eligible pool.
  */
 async function generateValidArticleRound() {
-  const pool = getActiveLanguagePool();
   for (let attempt = 0; attempt < 8; attempt++) {
-    const targetLang = pool[Math.floor(Math.random() * pool.length)];
+    const eligiblePool = getEligibleTargetLanguages();
+    const targetLang = eligiblePool[Math.floor(Math.random() * eligiblePool.length)];
     const results = await Promise.all([
       fetchSingleRandomWikiCandidate(targetLang),
       fetchSingleRandomWikiCandidate(targetLang),
@@ -153,17 +182,20 @@ async function generateValidArticleRound() {
     }
   }
 
-  // Fallback across 4 random pool languages concurrently
-  const fallbackLangs = shuffleArray(pool).slice(0, 4);
+  // Fallback across 4 random eligible languages concurrently
+  const fallbackLangs = shuffleArray(getEligibleTargetLanguages()).slice(0, 4);
   const fallbackHits = await Promise.all(fallbackLangs.map(l => fetchSingleRandomWikiCandidate(l)));
   const hit = fallbackHits.find(Boolean);
   if (hit) return hit;
 
   // Guaranteed safe fallback paragraph (>=200 chars, zero brackets)
-  const safeLang = pool[0] || WIKI_LANGUAGES[0];
+  const eligiblePool = getEligibleTargetLanguages();
+  const safeLang = eligiblePool[0] || WIKI_LANGUAGES[0];
   return {
     targetLang: safeLang,
     paragraph: 'Wikipedia is a free content online encyclopedia written and maintained by a community of volunteers through open collaboration and a wiki software system. It is the largest and most read reference work in history.',
+    hardParagraph: null,
+    optionsByDifficulty: buildAllDifficultyOptions(safeLang),
     articleTitle: 'Wikipedia',
     articleUrl: `https://${safeLang.code}.wikipedia.org`
   };
