@@ -1,1 +1,1 @@
-https://flavioeinzbern.github.io/GuessTheLanguage/GuessLanguage.html
+https://flavioeinzbern.github.io/GuessTheLanguage/index.html
