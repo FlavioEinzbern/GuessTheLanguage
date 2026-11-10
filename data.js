@@ -150,6 +150,20 @@ const MEDIUM_COUSIN_CLUSTERS = [
 const ALL_CATEGORIES = ['european', 'asian', 'african', 'austronesian', 'indigenous'];
 
 /**
+ * Visually Similar Macro-Script Groups for Hard Mode Fallback
+ * Used when a target language's exact writing system has fewer than 3 distractors,
+ * avoiding jarring jumps to unrelated scripts whenever possible.
+ */
+const HARD_MACRO_SCRIPT_GROUPS = [
+  ['East-Asian', 'Hangul'],
+  ['Arabic', 'Hebrew'],
+  ['Devanagari', 'Bengali', 'Gurmukhi', 'Gujarati'],
+  ['Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Sinhala'],
+  ['Thai', 'Khmer', 'Myanmar', 'Sinhala', 'Malayalam'],
+  ['Greek', 'Georgian', 'Armenian', 'Ethiopic']
+];
+
+/**
  * Unicode Script Regular Expressions for verifying native character purity.
  */
 const SCRIPT_CHAR_REGEX = {
