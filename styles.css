@@ -1,0 +1,33 @@
+/* Base Typography & Theme Background */
+body {
+  font-family: 'Inter', sans-serif;
+  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 70%, #020617 100%);
+  min-height: 100vh;
+  color: #f8fafc;
+}
+
+/* Wikipedia Extract Serif Font */
+.wiki-serif {
+  font-family: 'Noto Serif', Georgia, serif;
+}
+
+/* Answer Option Button Transitions & Hover Glow */
+.option-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.option-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
+}
+
+/* Pre-Game Setup Configuration Cards */
+.config-card {
+  transition: all 0.18s ease;
+}
+
+.config-card.active {
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.14);
+  box-shadow: 0 0 0 1px #6366f1, 0 10px 20px -10px rgba(99, 102, 241, 0.45);
+}
