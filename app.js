@@ -77,15 +77,16 @@ function shuffleArray(arr) {
 /**
  * Builds the 4 language answer options according to Easy, Medium, or Hard distractor rules.
  */
-function buildFourOptions(targetLang) {
+function buildFourOptions(targetLang, difficultyOverride) {
+  const difficulty = difficultyOverride || state.config.difficulty;
   const pool = getActiveLanguagePool();
   const others = pool.filter(l => l.code !== targetLang.code);
   const allOthers = WIKI_LANGUAGES.filter(l => l.code !== targetLang.code);
   let distractors = [];
 
-  if (state.config.difficulty === 'easy') {
+  if (difficulty === 'easy') {
     distractors = shuffleArray(others).slice(0, 3);
-  } else if (state.config.difficulty === 'medium') {
+  } else if (difficulty === 'medium') {
     const matchingClusters = MEDIUM_COUSIN_CLUSTERS.filter(cl => cl.includes(targetLang.code));
     const cousinCodes = new Set();
     matchingClusters.forEach(cl => cl.forEach(c => { if (c !== targetLang.code) cousinCodes.add(c); }));
@@ -121,6 +122,18 @@ function buildFourOptions(targetLang) {
   }
 
   return shuffleArray([targetLang, ...distractors.slice(0, 3)]);
+}
+
+/**
+ * Pre-generates answer option sets for all 3 difficulties (Easy, Medium, Hard)
+ * so switching difficulty on the setup screen never invalidates preloaded articles.
+ */
+function buildAllDifficultyOptions(targetLang) {
+  return {
+    easy: buildFourOptions(targetLang, 'easy'),
+    medium: buildFourOptions(targetLang, 'medium'),
+    hard: buildFourOptions(targetLang, 'hard')
+  };
 }
 
 function showScreen(screenName) {
@@ -274,11 +287,22 @@ function formatDisplayParagraph(text) {
 
 function displayQuestionOnScreen(questionData) {
   const dict = t();
-  const formattedParagraph = formatDisplayParagraph(questionData.paragraph);
+  const activeDiff = state.config.difficulty;
+
+  // Use the Hard Mode 100% Kanji variant for Japanese if hard difficulty is active and available
+  const rawParagraph = (activeDiff === 'hard' && questionData.hardParagraph)
+    ? questionData.hardParagraph
+    : questionData.paragraph;
+  const formattedParagraph = formatDisplayParagraph(rawParagraph);
+
+  const optionsByDifficulty = questionData.optionsByDifficulty || buildAllDifficultyOptions(questionData.targetLang);
+  const activeOptions = optionsByDifficulty[activeDiff] || buildFourOptions(questionData.targetLang, activeDiff);
+
   state.currentQuestion = {
     ...questionData,
+    optionsByDifficulty,
     paragraph: formattedParagraph,
-    options: buildFourOptions(questionData.targetLang)
+    options: activeOptions
   };
   state.selectedCode = null;
   state.status = 'playing';
@@ -301,8 +325,16 @@ async function loadNextRound() {
   document.getElementById('optionsGrid').innerHTML = '';
   updateHudUI();
 
-  if (state.prefetchQueue.length > 0) {
+  const usedInTenTries = state.config.mode === 'ten_tries'
+    ? new Set(state.history.map(h => h.targetLang.code))
+    : null;
+
+  while (state.prefetchQueue.length > 0) {
     const nextPreloaded = state.prefetchQueue.shift();
+    // In 10 Tries mode, skip any preloaded article whose language was already played in this run
+    if (usedInTenTries && usedInTenTries.has(nextPreloaded.targetLang.code)) {
+      continue;
+    }
     updatePrefetchBadgesUI();
     displayQuestionOnScreen(nextPreloaded);
     ensurePrefetchQueue();
@@ -588,12 +620,17 @@ document.querySelectorAll('.config-card').forEach(card => {
     const val = card.getAttribute('data-config-value');
     if (!group || !val) return;
 
+    const prevVal = state.config[group];
     state.config[group] = val;
-    if (group === 'pool' || group === 'difficulty') {
-      state.prefetchEpoch++;
-      state.prefetchQueue = [];
-      ensurePrefetchQueue();
-      if (group === 'pool' && val === 'custom') {
+
+    // Only reset the preloaded articles when selecting a different Language Pool
+    if (group === 'pool') {
+      if (prevVal !== val) {
+        state.prefetchEpoch++;
+        state.prefetchQueue = [];
+        ensurePrefetchQueue();
+      }
+      if (val === 'custom') {
         openCustomModal();
       }
     }
