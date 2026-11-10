@@ -1,7 +1,7 @@
 /**
- * ============================================================================
+ * ===========================================================================
  * STRICT BRACKET-FREE WIKIPEDIA SCANNER & BACKGROUND PREFETCHER
- * ============================================================================
+ * ===========================================================================
  * Handles fetching random Wikipedia articles, verifying character/number purity,
  * building 100% Kanji passages in Hard Mode for Japanese, and maintaining the
  * background prefetch queue.
