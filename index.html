@@ -11,140 +11,140 @@
 </head>
 <body class="flex flex-col min-h-screen selection:bg-indigo-500 selection:text-white">
 
-  <!-- TOP HEADER (Thinner for 9:16 mobile portrait) -->
-  <header class="w-full border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
-    <div class="max-w-5xl mx-auto px-3 sm:px-6 py-1.5 sm:py-2.5 flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-sm sm:text-base shadow-inner shrink-0">
+  <!-- TOP HEADER (Thinner in Portrait, Classic Checkpoint Layout in Landscape) -->
+  <header class="site-header w-full border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
+    <div class="header-inner max-w-5xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="header-logo rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-inner shrink-0">
           <i class="fa-brands fa-wikipedia-w"></i>
         </div>
         <div class="min-w-0">
-          <h1 id="headerTitle" class="text-sm sm:text-base font-extrabold tracking-tight text-white truncate">Guess the Language</h1>
-          <p id="headerSubtitle" class="hidden sm:block text-[11px] text-slate-400 leading-none">Live Random Wikipedia Paragraph Scanner</p>
+          <h1 id="headerTitle" class="header-title font-extrabold tracking-tight text-white truncate">Guess the Language</h1>
+          <p id="headerSubtitle" class="header-subtitle text-[11px] text-slate-400 leading-none">Live Random Wikipedia Paragraph Scanner</p>
         </div>
       </div>
 
       <!-- Top-Right UI Language Selector -->
-      <div class="flex items-center gap-1 bg-slate-950/80 p-0.5 sm:p-1 rounded-lg border border-slate-800 shrink-0">
-        <i class="fa-solid fa-earth-americas text-[11px] text-slate-400 pl-1.5 pr-0.5"></i>
-        <button type="button" data-ui-lang="en" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-semibold transition">English</button>
-        <button type="button" data-ui-lang="es" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-semibold transition">Español</button>
-        <button type="button" data-ui-lang="pt" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-semibold transition">Português</button>
+      <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shrink-0">
+        <i class="fa-solid fa-earth-americas text-xs text-slate-400 pl-1.5 pr-0.5"></i>
+        <button type="button" data-ui-lang="en" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">English</button>
+        <button type="button" data-ui-lang="es" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Español</button>
+        <button type="button" data-ui-lang="pt" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Português</button>
       </div>
     </div>
   </header>
 
   <!-- MAIN CONTAINER -->
-  <main class="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 py-2 sm:py-4 flex flex-col justify-between gap-2.5 sm:gap-4">
+  <main class="main-container flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 flex flex-col justify-between">
 
     <!-- 1. PRE-GAME SETUP SCREEN -->
-    <section id="setupScreen" class="space-y-3 sm:space-y-5">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-2xl space-y-3 sm:space-y-5">
-        <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5 sm:pb-3.5">
+    <section id="setupScreen" class="setup-screen-section flex-1 flex flex-col">
+      <div class="setup-panel bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl flex-1 flex flex-col justify-between">
+        <div class="setup-panel-header flex items-center justify-between gap-2 border-b border-slate-800">
           <div class="min-w-0">
-            <h2 id="setupHeading" class="text-base sm:text-2xl font-bold text-white truncate">Configure Your Game</h2>
-            <p id="setupSubheading" class="text-[11px] sm:text-sm text-slate-400 truncate">Choose your mode, Wikipedia language pool, and distractor difficulty.</p>
+            <h2 id="setupHeading" class="setup-heading font-bold text-white">Configure Your Game</h2>
+            <p id="setupSubheading" class="setup-subheading text-slate-400">Choose your mode, Wikipedia language pool, and distractor difficulty.</p>
           </div>
-          <!-- Background Prefetch Status Light Only -->
-          <div id="setupPrefetchBadge" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-800/90 border border-slate-700 shrink-0" title="Warming up articles...">
-            <span id="setupPrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span id="setupPrefetchText" class="sr-only">Warming up articles...</span>
+          <!-- Background Prefetch Status (Light-only in Portrait, Full Pill in Landscape) -->
+          <div id="setupPrefetchBadge" class="prefetch-badge inline-flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-700 shrink-0" title="Warming up articles...">
+            <span id="setupPrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+            <span id="setupPrefetchText" class="prefetch-label-text text-xs font-medium text-slate-300">Warming up articles...</span>
           </div>
         </div>
 
-        <!-- STEP 1: GAME MODE (Compact for 9:16 screens) -->
-        <div class="space-y-1.5 sm:space-y-2">
-          <label id="labelGameMode" class="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400">1. Select Game Mode</label>
-          <div class="grid grid-cols-3 gap-2 sm:gap-3">
-            <button type="button" data-config-group="mode" data-config-value="ten_tries" class="config-card active text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="modeTenTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">10 Tries Mode</span>
-                <i class="fa-solid fa-list-ol text-indigo-400 text-xs shrink-0"></i>
+        <!-- STEP 1: GAME MODE -->
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="labelGameMode" class="setup-step-label block font-bold uppercase tracking-wider text-indigo-400">1. Select Game Mode</label>
+          <div class="setup-cards-grid grid grid-cols-3 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="mode" data-config-value="ten_tries" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="modeTenTitle" class="config-card-title font-bold text-white leading-tight">10 Tries Mode</span>
+                <i class="fa-solid fa-list-ol text-indigo-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="modeTenDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Play 10 rounds and get a full accuracy breakdown and score at the end.</p>
+              <p id="modeTenDesc" class="config-card-desc text-slate-400">Play 10 rounds and get a full accuracy breakdown and score at the end.</p>
             </button>
 
-            <button type="button" data-config-group="mode" data-config-value="endless_3" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="modeEndless3Title" class="font-bold text-white text-xs sm:text-sm leading-tight">Endless (3 Lives)</span>
-                <span class="text-rose-400 text-[10px] tracking-tighter shrink-0"><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i></span>
+            <button type="button" data-config-group="mode" data-config-value="endless_3" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="modeEndless3Title" class="config-card-title font-bold text-white leading-tight">Endless (3 Lives)</span>
+                <span class="text-rose-400 text-[10px] sm:text-xs tracking-tighter shrink-0"><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i></span>
               </div>
-              <p id="modeEndless3Desc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Keep guessing as long as you can. You can miss 3 times before Game Over.</p>
+              <p id="modeEndless3Desc" class="config-card-desc text-slate-400">Keep guessing as long as you can. You can miss 3 times before Game Over.</p>
             </button>
 
-            <button type="button" data-config-group="mode" data-config-value="endless_1" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="modeEndless1Title" class="font-bold text-white text-xs sm:text-sm leading-tight">Endless (Single Life)</span>
-                <span class="text-amber-400 text-[10px] shrink-0"><i class="fa-solid fa-skull"></i></span>
+            <button type="button" data-config-group="mode" data-config-value="endless_1" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="modeEndless1Title" class="config-card-title font-bold text-white leading-tight">Endless (Single Life)</span>
+                <span class="text-amber-400 text-xs sm:text-sm shrink-0"><i class="fa-solid fa-skull"></i></span>
               </div>
-              <p id="modeEndless1Desc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Sudden-death survival mode. One wrong language guess ends your streak immediately.</p>
+              <p id="modeEndless1Desc" class="config-card-desc text-slate-400">Sudden-death survival mode. One wrong language guess ends your streak immediately.</p>
             </button>
           </div>
         </div>
 
         <!-- STEP 2: LANGUAGE POOL -->
-        <div class="space-y-1.5 sm:space-y-2">
-          <label id="labelLangPool" class="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400">2. Select Language Pool</label>
-          <div class="grid grid-cols-3 gap-2 sm:gap-3">
-            <button type="button" data-config-group="pool" data-config-value="stable" class="config-card active text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="poolStableTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Stable</span>
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="labelLangPool" class="setup-step-label block font-bold uppercase tracking-wider text-indigo-400">2. Select Language Pool</label>
+          <div class="setup-cards-grid grid grid-cols-3 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="pool" data-config-value="stable" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="poolStableTitle" class="config-card-title font-bold text-white leading-tight">Stable</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">66</span>
               </div>
-              <p id="poolStableDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Major world languages with deep, well-maintained Wikipedia editions and rich paragraphs.</p>
+              <p id="poolStableDesc" class="config-card-desc text-slate-400">Major world languages with deep, well-maintained Wikipedia editions and rich paragraphs.</p>
             </button>
 
-            <button type="button" data-config-group="pool" data-config-value="experimental" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="poolExpTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Experimental</span>
+            <button type="button" data-config-group="pool" data-config-value="experimental" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="poolExpTitle" class="config-card-title font-bold text-white leading-tight">Experimental</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold shrink-0">130+</span>
               </div>
-              <p id="poolExpDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Includes regional, historical, indigenous, and constructed languages from List of Wikipedias.</p>
+              <p id="poolExpDesc" class="config-card-desc text-slate-400">Includes regional, historical, indigenous, and constructed languages from List of Wikipedias.</p>
             </button>
 
-            <button type="button" id="customPoolCardBtn" data-config-group="pool" data-config-value="custom" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="poolCustomTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Custom Categories</span>
+            <button type="button" id="customPoolCardBtn" data-config-group="pool" data-config-value="custom" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="poolCustomTitle" class="config-card-title font-bold text-white leading-tight">Custom Categories</span>
                 <span id="customPoolBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold shrink-0">Configure</span>
               </div>
-              <p id="poolCustomDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Click to open the popup and pick European, Asian, African, Austronesian, or Indigenous groups.</p>
+              <p id="poolCustomDesc" class="config-card-desc text-slate-400">Click to open the popup and pick European, Asian, African, Austronesian, or Indigenous groups.</p>
             </button>
           </div>
         </div>
 
         <!-- STEP 3: DIFFICULTY -->
-        <div class="space-y-1.5 sm:space-y-2">
-          <label id="labelDifficulty" class="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-indigo-400">3. Select Difficulty</label>
-          <div class="grid grid-cols-3 gap-2 sm:gap-3">
-            <button type="button" data-config-group="difficulty" data-config-value="easy" class="config-card active text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="diffEasyTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Easy Mode</span>
-                <i class="fa-solid fa-dice text-emerald-400 text-xs shrink-0"></i>
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="labelDifficulty" class="setup-step-label block font-bold uppercase tracking-wider text-indigo-400">3. Select Difficulty</label>
+          <div class="setup-cards-grid grid grid-cols-3 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="difficulty" data-config-value="easy" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="diffEasyTitle" class="config-card-title font-bold text-white leading-tight">Easy Mode</span>
+                <i class="fa-solid fa-dice text-emerald-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffEasyDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">The 4 language options are picked completely at random from your active pool.</p>
+              <p id="diffEasyDesc" class="config-card-desc text-slate-400">The 4 language options are picked completely at random from your active pool.</p>
             </button>
 
-            <button type="button" data-config-group="difficulty" data-config-value="medium" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="diffMedTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Medium Mode</span>
-                <i class="fa-solid fa-scale-balanced text-amber-400 text-xs shrink-0"></i>
+            <button type="button" data-config-group="difficulty" data-config-value="medium" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="diffMedTitle" class="config-card-title font-bold text-white leading-tight">Medium Mode</span>
+                <i class="fa-solid fa-scale-balanced text-amber-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffMedDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">Mixes related or neighboring languages across different scripts (e.g. Russian &amp; Polish, Vietnamese &amp; Chinese).</p>
+              <p id="diffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages across different scripts (e.g. Russian &amp; Polish, Vietnamese &amp; Chinese).</p>
             </button>
 
-            <button type="button" data-config-group="difficulty" data-config-value="hard" class="config-card text-left p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1">
-                <span id="diffHardTitle" class="font-bold text-white text-xs sm:text-sm leading-tight">Hard Mode</span>
-                <i class="fa-solid fa-fire text-rose-400 text-xs shrink-0"></i>
+            <button type="button" data-config-group="difficulty" data-config-value="hard" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="diffHardTitle" class="config-card-title font-bold text-white leading-tight">Hard Mode</span>
+                <i class="fa-solid fa-fire text-rose-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffHardDesc" class="text-[10px] sm:text-xs text-slate-400 leading-snug line-clamp-2">All 4 choices share the same writing system and language family so alphabet shape won't give it away.</p>
+              <p id="diffHardDesc" class="config-card-desc text-slate-400">All 4 choices share the same writing system and language family so alphabet shape won't give it away.</p>
             </button>
           </div>
         </div>
 
         <!-- START BUTTON -->
         <div class="pt-1">
-          <button id="startGameBtn" type="button" class="w-full py-3 sm:py-3.5 px-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2.5 transition transform active:scale-[0.99]">
+          <button id="startGameBtn" type="button" class="start-game-btn w-full rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2.5 transition transform active:scale-[0.99]">
             <i class="fa-solid fa-play"></i>
             <span id="startGameBtnText">Start Game</span>
           </button>
@@ -153,58 +153,58 @@
     </section>
 
     <!-- 2. GAMEPLAY SCREEN -->
-    <section id="gameScreen" class="hidden space-y-2.5 sm:space-y-3">
+    <section id="gameScreen" class="hidden game-screen-section space-y-2.5 sm:space-y-3.5">
       <!-- WIKIPEDIA PARAGRAPH CARD -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl relative overflow-hidden">
-        <div class="flex items-center justify-between gap-2 pb-1.5 sm:pb-2 mb-2 border-b border-slate-800/80 text-[11px] sm:text-xs text-slate-400">
+      <div class="wiki-card bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl relative overflow-hidden">
+        <div class="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-slate-800/80 text-xs text-slate-400">
           <div class="flex items-center gap-1.5 min-w-0">
             <i class="fa-brands fa-wikipedia-w text-indigo-400 shrink-0"></i>
             <span id="snippetHeaderBadge" class="truncate">Random Wikipedia Paragraph (Bracket-Free • 200–600 chars)</span>
           </div>
-          <span id="charCountBadge" class="px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[10px] sm:text-[11px] shrink-0">0 chars</span>
+          <span id="charCountBadge" class="px-2.5 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px] shrink-0">0 chars</span>
         </div>
 
         <!-- Scanner Loading State -->
-        <div id="scannerLoadingState" class="py-5 sm:py-7 flex flex-col items-center justify-center text-center space-y-2">
-          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-base sm:text-lg">
+        <div id="scannerLoadingState" class="py-6 sm:py-8 flex flex-col items-center justify-center text-center space-y-2.5">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-lg">
             <i class="fa-solid fa-spinner fa-spin"></i>
           </div>
-          <p id="scannerStatusTitle" class="text-xs sm:text-sm font-bold text-white">Scanning Random Wikipedia Articles...</p>
-          <p id="scannerStatusSub" class="text-[11px] text-slate-400 max-w-md">Searching for a clean paragraph (≥200 characters) without any (), {}, or [] brackets.</p>
+          <p id="scannerStatusTitle" class="text-sm font-bold text-white">Scanning Random Wikipedia Articles...</p>
+          <p id="scannerStatusSub" class="text-xs text-slate-400 max-w-md">Searching for a clean paragraph (≥200 characters) without any (), {}, or [] brackets.</p>
         </div>
 
-        <!-- Paragraph Content (capped height on mobile so Next button stays on screen) -->
-        <div id="snippetContentArea" class="hidden max-h-[26dvh] sm:max-h-[34dvh] overflow-y-auto pr-1">
-          <blockquote id="wikiParagraphText" class="wiki-serif text-xs sm:text-base leading-relaxed text-slate-100 select-text break-words"></blockquote>
+        <!-- Paragraph Content (Bigger & easier to read in mobile portrait, classic checkpoint sizing in landscape) -->
+        <div id="snippetContentArea" class="hidden snippet-scroll-box overflow-y-auto pr-1">
+          <blockquote id="wikiParagraphText" class="wiki-serif wiki-paragraph-text text-slate-100 select-text break-words"></blockquote>
         </div>
       </div>
 
       <!-- 4 LANGUAGE OPTIONS GRID (ALWAYS 2 ABOVE & 2 BELOW, FIXED SIZE) -->
       <div class="space-y-1.5">
-        <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400 px-1">
+        <div class="flex items-center justify-between text-xs text-slate-400 px-1">
           <span id="choosePromptText" class="truncate">Choose the language of this Wikipedia article:</span>
           <span id="keyboardHintText" class="hidden sm:inline text-slate-500">Keys 1–4 to select</span>
         </div>
-        <div id="optionsGrid" class="grid grid-cols-2 gap-2 sm:gap-2.5"></div>
+        <div id="optionsGrid" class="grid grid-cols-2 gap-2.5 sm:gap-3"></div>
       </div>
 
-      <!-- POST-GUESS REVEAL CARD & NEXT BUTTON (COMPACT & ALWAYS ON SCREEN) -->
-      <div id="revealCardContainer" class="hidden bg-slate-900/95 border border-indigo-500/40 rounded-xl sm:rounded-2xl p-2.5 sm:px-4 sm:py-3 shadow-2xl">
-        <div class="flex items-center justify-between gap-2.5">
+      <!-- POST-GUESS REVEAL CARD & NEXT BUTTON (ALWAYS ON SCREEN) -->
+      <div id="revealCardContainer" class="hidden reveal-card bg-slate-900/95 border border-indigo-500/40 rounded-xl sm:rounded-2xl shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
           <div class="min-w-0 flex-1 space-y-0.5">
-            <div class="flex flex-wrap items-center gap-1.5">
-              <div id="revealStatusBanner" class="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"></div>
-              <h3 id="revealArticleTitle" class="text-xs sm:text-sm font-bold text-white truncate max-w-[140px] sm:max-w-xs"></h3>
-              <a id="revealWikiLink" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <div id="revealStatusBanner" class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"></div>
+              <h3 id="revealArticleTitle" class="text-xs sm:text-base font-bold text-white truncate max-w-[160px] sm:max-w-md"></h3>
+              <a id="revealWikiLink" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0">
                 <i class="fa-brands fa-wikipedia-w"></i>
                 <span id="revealReadArticleText" class="hidden sm:inline">Open on Wikipedia</span>
-                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
               </a>
             </div>
-            <p id="revealLangDetails" class="text-[11px] text-slate-300 truncate"></p>
+            <p id="revealLangDetails" class="text-[11px] sm:text-xs text-slate-300 truncate"></p>
           </div>
 
-          <button id="nextRoundBtn" type="button" class="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1.5 shrink-0 transition">
+          <button id="nextRoundBtn" type="button" class="px-5 sm:px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 shrink-0 transition">
             <span id="nextRoundBtnText">Next</span>
             <i class="fa-solid fa-arrow-right text-xs"></i>
           </button>
@@ -212,37 +212,37 @@
       </div>
 
       <!-- HUD BAR (BELOW ANSWER OPTIONS: ROUND, SCORE, STREAK, LIVES) -->
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:px-3.5 flex flex-wrap items-center justify-between gap-2">
+      <div class="hud-bar bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-1.5 sm:gap-2.5">
-          <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] sm:text-xs font-semibold">
+          <div class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
             <span id="hudRoundLabel" class="text-slate-400 mr-1">Round:</span>
             <span id="hudRoundValue" class="text-white font-bold">1 / 10</span>
           </div>
 
-          <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] sm:text-xs font-semibold">
+          <div class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
             <span id="hudScoreLabel" class="text-slate-400 mr-1">Score:</span>
             <span id="hudScoreValue" class="text-emerald-400 font-bold">0</span>
           </div>
 
-          <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] sm:text-xs font-semibold">
+          <div class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
             <span id="hudStreakLabel" class="text-slate-400 mr-1">Streak:</span>
             <span id="hudStreakValue" class="text-amber-400 font-bold">0 🔥</span>
           </div>
 
-          <div id="hudLivesBadge" class="hidden px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] sm:text-xs font-semibold">
+          <div id="hudLivesBadge" class="hidden px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
             <span id="hudLivesLabel" class="text-slate-400 mr-1">Lives:</span>
             <span id="hudLivesValue" class="text-rose-400 font-bold">❤️❤️❤️</span>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- Prefetch Light Only -->
-          <div id="gamePrefetchBadge" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-950 border border-slate-800" title="Preloaded status">
-            <span id="gamePrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span id="gamePrefetchText" class="sr-only">Next ready</span>
+          <!-- Prefetch Status (Light-only in Portrait, Full Pill in Landscape) -->
+          <div id="gamePrefetchBadge" class="prefetch-badge inline-flex items-center justify-center rounded-full bg-slate-950 border border-slate-800" title="Preloaded status">
+            <span id="gamePrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+            <span id="gamePrefetchText" class="prefetch-label-text text-xs font-medium text-slate-300">Next ready</span>
           </div>
 
-          <button id="openSettingsBtn" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition">
+          <button id="openSettingsBtn" type="button" class="px-3 py-1 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition">
             <i class="fa-solid fa-sliders"></i>
             <span id="hudSettingsBtnText">Setup</span>
           </button>
@@ -300,19 +300,19 @@
 
     <!-- BOTTOM NATIVE NAME TOGGLE BAR -->
     <footer class="pt-1">
-      <div class="bg-slate-900/75 border border-slate-800/90 rounded-xl sm:rounded-2xl px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between gap-2.5">
+      <div class="footer-bar bg-slate-900/75 border border-slate-800/90 rounded-xl sm:rounded-2xl flex items-center justify-between gap-2.5">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 text-xs shrink-0">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 text-xs sm:text-sm shrink-0">
             <i class="fa-solid fa-language"></i>
           </div>
           <div class="min-w-0">
-            <div id="nativeToggleTitle" class="text-[11px] sm:text-xs font-semibold text-slate-200 truncate">Show native language names below translated names</div>
-            <div id="nativeToggleSub" class="hidden sm:block text-[11px] text-slate-400">Default is off (revealed only after you select an answer). Turn on to always show.</div>
+            <div id="nativeToggleTitle" class="text-xs font-semibold text-slate-200 truncate">Show native language names below translated names</div>
+            <div id="nativeToggleSub" class="footer-subtext text-[11px] text-slate-400">Default is off (revealed only after you select an answer). Turn on to always show.</div>
           </div>
         </div>
 
         <label class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0">
-          <span id="nativeToggleStateText" class="text-[11px] font-semibold text-slate-400">After Answer</span>
+          <span id="nativeToggleStateText" class="text-xs font-semibold text-slate-400">After Answer</span>
           <input id="alwaysShowNativeToggle" type="checkbox" class="sr-only peer" />
           <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-indigo-600 border border-slate-700"></div>
         </label>
@@ -409,7 +409,7 @@
     </div>
   </div>
 
-  <!-- Modular Game Scripts (loaded in order so index.html works directly via file:// or a local server) -->
+  <!-- Modular Game Scripts -->
   <script src="data.js"></script>
   <script src="i18n.js"></script>
   <script src="scanner.js"></script>
