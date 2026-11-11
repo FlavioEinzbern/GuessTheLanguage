@@ -1,19 +1,33 @@
-/* Base Typography & Theme Background */
+/**
+ * ============================================================================
+ * GUESS THE LANGUAGE — CUSTOM STYLESHEET
+ * ============================================================================
+ */
+
 body {
-  font-family: 'Inter', sans-serif;
-  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 70%, #020617 100%);
-  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at top, #1e1b4b 0%, #0f172a 45%, #020617 100%);
   color: #f8fafc;
+  min-height: 100vh;
 }
 
-/* Wikipedia Extract Serif Font */
 .wiki-serif {
-  font-family: 'Noto Serif', Georgia, serif;
+  font-family: 'Noto Serif', 'Inter', Georgia, serif;
 }
 
-/* Answer Option Button Transitions & Hover Glow */
+/* Answer Option Button Transitions & Fixed Height (2x2 Grid) */
 .option-btn {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 3.5rem;
+}
+
+@media (min-width: 640px) {
+  .option-btn {
+    height: 4rem;
+  }
 }
 
 .option-btn:hover:not(:disabled) {
@@ -29,5 +43,24 @@ body {
 .config-card.active {
   border-color: #6366f1;
   background-color: rgba(99, 102, 241, 0.14);
-  box-shadow: 0 0 0 1px #6366f1, 0 10px 20px -10px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 1px #6366f1, 0 10px 25px -8px rgba(99, 102, 241, 0.45);
+}
+
+/* Custom Subtle Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
 }
