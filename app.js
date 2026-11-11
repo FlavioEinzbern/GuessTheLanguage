@@ -305,8 +305,8 @@ function renderOptionButtons() {
 
   grid.innerHTML = state.currentQuestion.options.map((lang, idx) => {
     const translatedName = getLocalizedLanguageName(lang);
-    let btnClasses = 'option-btn w-full px-2.5 sm:px-4 rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 overflow-hidden ';
-    let badgeClasses = 'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[11px] sm:text-xs font-extrabold shrink-0 ';
+    let btnClasses = 'option-btn w-full rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 overflow-hidden ';
+    let badgeClasses = 'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ';
     let statusIcon = '';
 
     if (!isRevealed) {
@@ -320,17 +320,17 @@ function renderOptionButtons() {
         // Selected & Right -> GREEN
         btnClasses += 'bg-emerald-600/25 border-emerald-500 text-white shadow-lg shadow-emerald-600/20';
         badgeClasses += 'bg-emerald-500 text-slate-950';
-        statusIcon = '<i class="fa-solid fa-circle-check text-emerald-400 text-sm sm:text-base"></i>';
+        statusIcon = '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>';
       } else if (isSelected && !isCorrect) {
         // Selected & Wrong -> RED
         btnClasses += 'bg-rose-600/25 border-rose-500 text-white shadow-lg shadow-rose-600/20';
         badgeClasses += 'bg-rose-500 text-white';
-        statusIcon = '<i class="fa-solid fa-circle-xmark text-rose-400 text-sm sm:text-base"></i>';
+        statusIcon = '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>';
       } else if (!isSelected && isCorrect) {
         // Not selected, but is the Correct Answer -> BLUE
         btnClasses += 'bg-sky-600/25 border-sky-400 text-white shadow-lg shadow-sky-600/20';
         badgeClasses += 'bg-sky-400 text-slate-950';
-        statusIcon = '<i class="fa-solid fa-circle-check text-sky-300 text-sm sm:text-base"></i>';
+        statusIcon = '<i class="fa-solid fa-circle-check text-sky-300 text-base"></i>';
       } else {
         btnClasses += 'bg-slate-950/50 border-slate-800/60 text-slate-500 opacity-65';
         badgeClasses += 'bg-slate-900 text-slate-500 border border-slate-800';
@@ -344,11 +344,11 @@ function renderOptionButtons() {
         ${isRevealed ? 'disabled' : ''}
         class="${btnClasses}"
       >
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <span class="${badgeClasses}">${idx + 1}</span>
           <div class="min-w-0 flex-1 leading-tight">
-            <div class="font-bold text-xs sm:text-base truncate">${escapeHtml(translatedName)}</div>
-            <div class="${showNativeNow ? 'visible opacity-100' : 'invisible opacity-0'} text-[10px] sm:text-xs text-slate-300/90 font-medium truncate h-3.5 sm:h-4 leading-tight transition-opacity">
+            <div class="option-lang-name font-bold truncate">${escapeHtml(translatedName)}</div>
+            <div class="${showNativeNow ? 'visible opacity-100' : 'invisible opacity-0'} option-native-name text-slate-300/90 font-medium truncate leading-tight transition-opacity">
               ${escapeHtml(lang.native)}
             </div>
           </div>
@@ -457,10 +457,10 @@ function updateRevealCardUI() {
 
   const banner = document.getElementById('revealStatusBanner');
   if (isCorrect) {
-    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
     banner.innerHTML = `<i class="fa-solid fa-check"></i> <span>${escapeHtml(dict.revealCorrect)}</span>`;
   } else {
-    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
     banner.innerHTML = `<i class="fa-solid fa-xmark"></i> <span>${escapeHtml(dict.revealWrong)}</span>`;
   }
 
@@ -617,8 +617,8 @@ function setUiLanguage(langCode) {
   document.querySelectorAll('.ui-lang-btn').forEach(btn => {
     const active = btn.getAttribute('data-ui-lang') === langCode;
     btn.className = active
-      ? 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
-      : 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
+      ? 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
+      : 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
   });
 
   const dict = t();
