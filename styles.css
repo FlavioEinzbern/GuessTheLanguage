@@ -1,6 +1,7 @@
 /**
  * ============================================================================
  * GUESS THE LANGUAGE — CUSTOM STYLESHEET
+ * Separate layout tuning for Portrait (2:3 & 9:16 mobile) vs Landscape (Desktop)
  * ============================================================================
  */
 
@@ -8,26 +9,33 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at top, #1e1b4b 0%, #0f172a 45%, #020617 100%);
   color: #f8fafc;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .wiki-serif {
   font-family: 'Noto Serif', 'Inter', Georgia, serif;
 }
 
-/* Answer Option Button Transitions & Fixed Height (2x2 Grid) */
+/* Pre-Game Setup Configuration Cards */
+.config-card {
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.config-card.active {
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.14);
+  box-shadow: 0 0 0 1px #6366f1, 0 10px 25px -8px rgba(99, 102, 241, 0.45);
+}
+
+/* Answer Option Button Transitions */
 .option-btn {
   transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  height: 3.5rem;
-}
-
-@media (min-width: 640px) {
-  .option-btn {
-    height: 4rem;
-  }
 }
 
 .option-btn:hover:not(:disabled) {
@@ -35,15 +43,278 @@ body {
   box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
 }
 
-/* Pre-Game Setup Configuration Cards */
-.config-card {
-  transition: all 0.18s ease;
+/* ============================================================================
+ * PORTRAIT VIEW (2:3 and taller mobile portrait screens)
+ * - Thinner header & light-only prefetch indicator
+ * - Setup menu stretched vertically so all text inside option boxes is shown
+ * - Larger in-game Wikipedia text & answer option text for mobile readability
+ * ============================================================================ */
+@media (orientation: portrait) {
+  .header-inner {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .header-logo {
+    width: 1.85rem;
+    height: 1.85rem;
+    font-size: 0.875rem;
+  }
+
+  .header-title {
+    font-size: 0.925rem;
+  }
+
+  .header-subtitle {
+    display: none;
+  }
+
+  .prefetch-badge {
+    width: 1.65rem;
+    height: 1.65rem;
+    padding: 0;
+  }
+
+  .prefetch-label-text {
+    display: none;
+  }
+
+  .main-container {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  /* Vertically stretch Setup Panel & Option Boxes to fit 2:3 aspect ratio */
+  .setup-panel {
+    padding: 1rem 0.875rem;
+    gap: 0.75rem;
+    min-height: calc(100dvh - 6.75rem);
+  }
+
+  .setup-panel-header {
+    padding-bottom: 0.6rem;
+  }
+
+  .setup-heading {
+    font-size: 1.15rem;
+    line-height: 1.3;
+  }
+
+  .setup-subheading {
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .setup-step-group {
+    flex: 1 1 auto;
+    gap: 0.45rem;
+  }
+
+  .setup-step-label {
+    font-size: 0.72rem;
+  }
+
+  .setup-cards-grid {
+    flex: 1 1 auto;
+    align-items: stretch;
+  }
+
+  .config-card {
+    padding: 0.75rem 0.65rem;
+    min-height: 6.8rem;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .config-card-title {
+    font-size: 0.82rem;
+  }
+
+  .config-card-desc {
+    font-size: 0.72rem;
+    line-height: 1.38;
+    display: block;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .start-game-btn {
+    padding: 0.85rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  /* Gameplay View in Portrait: Bigger, easier-to-read text */
+  .wiki-card {
+    padding: 0.9rem 1rem;
+  }
+
+  .snippet-scroll-box {
+    max-height: 34dvh;
+  }
+
+  .wiki-paragraph-text {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
+
+  .option-btn {
+    height: 4.15rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .option-lang-name {
+    font-size: 0.95rem;
+  }
+
+  .option-native-name {
+    font-size: 0.78rem;
+    height: 1.1rem;
+  }
+
+  .reveal-card {
+    padding: 0.65rem 0.85rem;
+  }
+
+  .hud-bar {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .footer-bar {
+    padding: 0.55rem 0.85rem;
+  }
+
+  .footer-subtext {
+    display: none;
+  }
 }
 
-.config-card.active {
-  border-color: #6366f1;
-  background-color: rgba(99, 102, 241, 0.14);
-  box-shadow: 0 0 0 1px #6366f1, 0 10px 25px -8px rgba(99, 102, 241, 0.45);
+/* ============================================================================
+ * LANDSCAPE VIEW (Restores the previous spacious checkpoint layout)
+ * ============================================================================ */
+@media (orientation: landscape) {
+  .header-inner {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .header-logo {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.125rem;
+  }
+
+  .header-title {
+    font-size: 1.125rem;
+  }
+
+  .header-subtitle {
+    display: block;
+  }
+
+  .prefetch-badge {
+    padding: 0.35rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .prefetch-label-text {
+    display: inline;
+  }
+
+  .main-container {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+    gap: 1rem;
+  }
+
+  .setup-panel {
+    padding: 1.5rem 1.75rem;
+    gap: 1.25rem;
+  }
+
+  .setup-panel-header {
+    padding-bottom: 1rem;
+  }
+
+  .setup-heading {
+    font-size: 1.5rem;
+  }
+
+  .setup-subheading {
+    font-size: 0.875rem;
+  }
+
+  .setup-step-group {
+    gap: 0.6rem;
+  }
+
+  .setup-step-label {
+    font-size: 0.75rem;
+  }
+
+  .config-card {
+    padding: 1rem;
+    height: 100%;
+  }
+
+  .config-card-title {
+    font-size: 0.925rem;
+  }
+
+  .config-card-desc {
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .start-game-btn {
+    padding: 0.95rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .wiki-card {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .snippet-scroll-box {
+    max-height: 34dvh;
+  }
+
+  .wiki-paragraph-text {
+    font-size: 1.05rem;
+    line-height: 1.65;
+  }
+
+  .option-btn {
+    height: 4rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .option-lang-name {
+    font-size: 1rem;
+  }
+
+  .option-native-name {
+    font-size: 0.78rem;
+    height: 1.1rem;
+  }
+
+  .reveal-card {
+    padding: 0.85rem 1.15rem;
+  }
+
+  .hud-bar {
+    padding: 0.65rem 1rem;
+  }
+
+  .footer-bar {
+    padding: 0.75rem 1rem;
+  }
+
+  .footer-subtext {
+    display: block;
+  }
 }
 
 /* Custom Subtle Scrollbars */
