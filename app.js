@@ -303,12 +303,19 @@ function generateAudioRoundQuestion() {
     };
   } else {
     // GUESS THE COUNTRY IN AUDIO MODE
+    // Track all languages spoken across broadcasters per countryCode (e.g., CH has de+fr, CA has en+fr)
+    const countryLangSetMap = new Map();
     const uniqueCountries = new Map();
     TV_NEWS_BROADCASTERS.forEach(b => {
+      if (!countryLangSetMap.has(b.countryCode)) {
+        countryLangSetMap.set(b.countryCode, new Set());
+      }
+      countryLangSetMap.get(b.countryCode).add(b.langCode);
       if (!uniqueCountries.has(b.countryCode)) {
         uniqueCountries.set(b.countryCode, b);
       }
     });
+
     const allCountries = Array.from(uniqueCountries.values());
     const others = allCountries.filter(c => c.countryCode !== targetBroadcaster.countryCode);
     let distractors = [];
@@ -323,7 +330,12 @@ function generateAudioRoundQuestion() {
         if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
       }
     } else {
-      const sameLanguageCountries = shuffleArray(others.filter(c => c.langCode === targetBroadcaster.langCode));
+      const sameLanguageCountries = shuffleArray(
+        others.filter(c => {
+          const langSet = countryLangSetMap.get(c.countryCode);
+          return langSet && langSet.has(targetBroadcaster.langCode);
+        })
+      );
       const sameFamilyCountries = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
       const sameRegionCountries = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
 
