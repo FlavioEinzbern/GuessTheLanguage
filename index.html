@@ -225,7 +225,7 @@
           </div>
           <span class="px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-bold shrink-0 flex items-center gap-1.5">
             <i class="fa-solid fa-satellite-dish"></i>
-            <span>38 TV Channels</span>
+            <span id="tvChannelCountBadge">97 TV Channels</span>
           </span>
         </div>
 
@@ -392,7 +392,7 @@
           <p id="audioWaveHint" class="text-xs text-slate-400">Listening to live national TV news audio... Video reveals after you answer!</p>
         </div>
 
-        <!-- YOUTUBE VIDEO VIEWPORT (Blurred when Video Toggle is ON while guessing; ALWAYS Clear after answering!) -->
+        <!-- YOUTUBE VIDEO VIEWPORT (Blurred when Video Toggle is ON while guessing; ALWAYS Clear after answering or in Remove Blur mode!) -->
         <div id="tvViewportWrapper" class="tv-viewport-hidden w-full rounded-2xl bg-black border border-slate-800 relative">
           <div id="ytIframeScaleBox" class="w-full h-full tv-iframe-blurred">
             <div id="ytPlayerElement" class="w-full h-full"></div>
@@ -541,7 +541,7 @@
         <label class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0">
           <span id="videoToggleStateText" class="text-xs font-semibold text-slate-400">Audio Only</span>
           <input id="showBlurredVideoToggle" type="checkbox" class="sr-only peer" />
-          <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700"></div>
+          <div id="videoToggleSwitchTrack" class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700"></div>
         </label>
       </div>
 
