@@ -104,6 +104,7 @@ const I18N = {
     videoToggleSub: 'Default is off (audio-only until you answer, then video is revealed). Turn on for blurred TV preview.',
     videoStateOff: 'Audio Only',
     videoStateOn: 'Blurred Video',
+    videoStateClear: 'Remove Blur 🔓',
     nativeToggleTitle: 'Show native names below translated names',
     nativeToggleSub: 'Default is off (revealed only after you select an answer). Turn on to always show.',
     nativeStateOff: 'After Answer',
@@ -224,6 +225,7 @@ const I18N = {
     videoToggleSub: 'Desactivado por defecto (solo audio hasta responder, luego muestra el video). Actívalo para ver TV difuminada.',
     videoStateOff: 'Solo Audio',
     videoStateOn: 'Video Difuminado',
+    videoStateClear: 'Quitar Difuminado 🔓',
     nativeToggleTitle: 'Mostrar nombre nativo debajo del nombre traducido',
     nativeToggleSub: 'Desactivado por defecto (se muestra solo tras responder). Actívalo para mostrarlo siempre.',
     nativeStateOff: 'Tras Responder',
@@ -344,6 +346,7 @@ const I18N = {
     videoToggleSub: 'Desligado por padrão (apenas áudio até responder, depois mostra o vídeo). Ligue para ver a TV desfocada.',
     videoStateOff: 'Apenas Áudio',
     videoStateOn: 'Vídeo Desfocado',
+    videoStateClear: 'Remover Desfoque 🔓',
     nativeToggleTitle: 'Mostrar nome nativo abaixo do nome traduzido',
     nativeToggleSub: 'O padrão é desligado (mostrado apenas após responder). Ligue para mostrar sempre.',
     nativeStateOff: 'Após Responder',
@@ -368,8 +371,28 @@ const I18N = {
 };
 
 const MANUAL_LANG_NAMES = {
-  es: { nah: 'Náhuatl', scn: 'Siciliano', ast: 'Asturiano', ckb: 'Kurdo central', yue: 'Cantonés', ceb: 'Cebuano', ilo: 'Ilocano', haw: 'Hawaiano' },
-  pt: { nah: 'Náuatle', scn: 'Siciliano', ast: 'Asturiano', ckb: 'Curdo central', yue: 'Cantonês', ceb: 'Cebuano', ilo: 'Ilocano', haw: 'Havaiano' }
+  es: {
+    nah: 'Náhuatl', scn: 'Siciliano', ast: 'Asturiano', ckb: 'Kurdo central',
+    yue: 'Cantonés', ceb: 'Cebuano', ilo: 'Ilocano', haw: 'Hawaiano',
+    lo: 'Lao', si: 'Cingalés', ne: 'Nepalí', ps: 'Pastún', tg: 'Tayiko',
+    ky: 'Kirguís', az: 'Azerbaiyano', hy: 'Armenio', ka: 'Georgiano',
+    gl: 'Gallego', eu: 'Euskera (Vasco)', ca: 'Catalán', cy: 'Galés',
+    ga: 'Irlandés', sq: 'Albanés', be: 'Bielorruso', mk: 'Macedonio',
+    bs: 'Bosnio', sl: 'Esloveno', sk: 'Eslovaco', lv: 'Letón',
+    lt: 'Lituano', hu: 'Húngaro', et: 'Estonio', is: 'Islandés',
+    fi: 'Finés', da: 'Danés', no: 'Noruego', sv: 'Sueco'
+  },
+  pt: {
+    nah: 'Náuatle', scn: 'Siciliano', ast: 'Asturiano', ckb: 'Curdo central',
+    yue: 'Cantonês', ceb: 'Cebuano', ilo: 'Ilocano', haw: 'Havaiano',
+    lo: 'Laosiano', si: 'Cingalês', ne: 'Nepalês', ps: 'Pashto', tg: 'Tajique',
+    ky: 'Quirguiz', az: 'Azerbaijano', hy: 'Armênio', ka: 'Georgiano',
+    gl: 'Galego', eu: 'Basco', ca: 'Catalão', cy: 'Galês',
+    ga: 'Irlandês', sq: 'Albanês', be: 'Bielorrusso', mk: 'Macedônio',
+    bs: 'Bósnio', sl: 'Esloveno', sk: 'Eslovaco', lv: 'Letão',
+    lt: 'Lituano', hu: 'Húngaro', et: 'Estoniano', is: 'Islandês',
+    fi: 'Finlandês', da: 'Dinamarquês', no: 'Norueguês', sv: 'Sueco'
+  }
 };
 
 /**
