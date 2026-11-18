@@ -1,10 +1,11 @@
 /**
  * ============================================================================
- * WORLD TV NEWS BROADCASTERS DATABASE (65 Channels • 38 Languages)
+ * WORLD TV NEWS BROADCASTERS DATABASE (96 Channels • 67 Languages)
  * ============================================================================
  * - Includes only human-approved broadcast videos and studio anchor clips
  * - Supports both `minStart`/`maxStart` windows and multi-range `segments`
- *   (e.g., Macau TDM `MO-2` & `MO-3`, Québec `CA-FR-1`, and Mongolia `MN-1..3`)
+ *   (e.g., Macau TDM `MO-2` & `MO-3`, Finland `FI-1`, Iceland `IS-1`,
+ *    Québec `CA-FR-1`, and Mongolia `MN-1..3`)
  */
 
 const TV_NEWS_BROADCASTERS = [
@@ -169,7 +170,7 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCCanalCaribeCuba',
     curatedOnly: true,
     videos: [
-      // Approved: CU-1, CU-3 (CU-2 disapproved)
+      // Approved: CU-1, CU-3
       { id: 'hcRjryxYCmo', title: 'Transferencias bancarias en el comercio en Cuba | Canal Caribe', minStart: 10, maxStart: 55 },
       { id: 'Neiyb66PvW0', title: 'Canal Caribe: A cinco años de su salida al aire en Cuba', minStart: 12, maxStart: 60 }
     ]
@@ -408,7 +409,7 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCRTENewsIreland',
     curatedOnly: true,
     videos: [
-      // Approved: IE-1, IE-2 (IE-3 disapproved)
+      // Approved: IE-1, IE-2
       { id: 'OS4LBttIb-c', title: 'Dublin Traffic & EU Meetings | RTÉ News Ireland', minStart: 8, maxStart: 55 },
       { id: 'vrnHEYOKgPQ', title: 'Dublin Housing & Accommodation Report | RTÉ News', minStart: 6, maxStart: 45 }
     ]
@@ -515,7 +516,7 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCRadioCanadaInfo',
     curatedOnly: true,
     videos: [
-      // Approved: CA-FR-1 (Skip first 3m29s = 209s) & CA-FR-3 (CA-FR-2 disapproved)
+      // Approved: CA-FR-1 (Skip first 3m29s = 209s) & CA-FR-3
       { id: 'ltAaldXhH64', title: 'Le Téléjournal Québec | Radio-Canada Info', minStart: 210, maxStart: 320 },
       { id: 'UV5rOhuWv2k', title: 'Fin du PEQ : Le Téléjournal 18h | Radio-Canada', minStart: 10, maxStart: 55 }
     ]
@@ -587,7 +588,7 @@ const TV_NEWS_BROADCASTERS = [
   },
 
   // ==========================================================================
-  // ITALIAN, DUTCH, GREEK, ROMANIAN
+  // ITALIAN (Italy, Switzerland) & DUTCH (Netherlands, Belgium)
   // ==========================================================================
   {
     id: 'it_tgla7',
@@ -610,6 +611,26 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'ch_rsi',
+    broadcaster: 'RSI Telegiornale (Svizzera)',
+    countryCode: 'CH',
+    countryName: 'Switzerland',
+    countryNative: 'Svizzera / Schweiz',
+    flag: '🇨🇭',
+    region: 'Europe',
+    langCode: 'it',
+    langName: 'Italian',
+    langNative: 'Italiano',
+    family: 'Romance',
+    channelId: 'UCRSIInfoSvizzera',
+    curatedOnly: true,
+    videos: [
+      // Approved: CH-IT-1, CH-IT-2
+      { id: 'XVmAFaqpOWA', title: 'TG Speciale | RSI Info Svizzera Italiana', minStart: 15, maxStart: 65 },
+      { id: 'CpNPcHw6LV0', title: 'RSI La 1 - Telegiornale 20:00 | Svizzera', minStart: 15, maxStart: 60 }
+    ]
+  },
+  {
     id: 'nl_nos',
     broadcaster: 'NOS Journaal',
     countryCode: 'NL',
@@ -629,6 +650,336 @@ const TV_NEWS_BROADCASTERS = [
       { id: 'hXNdZOSpEIE', title: 'NOS Journaal Verslag | Nederlands Nieuws', minStart: 5, maxStart: 20 }
     ]
   },
+  {
+    id: 'be_vrt',
+    broadcaster: 'VRT NWS (Het Journaal)',
+    countryCode: 'BE',
+    countryName: 'Belgium',
+    countryNative: 'België / Belgique',
+    flag: '🇧🇪',
+    region: 'Europe',
+    langCode: 'nl',
+    langName: 'Dutch',
+    langNative: 'Nederlands',
+    family: 'Germanic',
+    channelId: 'UCVRTNWSBelgie',
+    curatedOnly: true,
+    videos: [
+      // Approved: BE-NL-1, BE-NL-2, BE-NL-3
+      { id: 'qt_cHu4AmPQ', title: 'Begrotingsminister over besparingen | VRT NWS België', minStart: 12, maxStart: 60 },
+      { id: 'GVeVxwGCNpI', title: 'Waarom doet de begroting in België het slechter? | VRT NWS', minStart: 10, maxStart: 55 },
+      { id: 'sGYTdFlySbs', title: 'Vlaamse regering bereikt begrotingsakkoord | VRT NWS', minStart: 12, maxStart: 60 }
+    ]
+  },
+
+  // ==========================================================================
+  // WESTERN EUROPEAN REGIONAL & CO-OFFICIAL LANGUAGES
+  // (Irish, Welsh, Catalan, Basque, Galician)
+  // ==========================================================================
+  {
+    id: 'ie_tg4',
+    broadcaster: 'Nuacht TG4 / RTÉ',
+    countryCode: 'IE',
+    countryName: 'Ireland',
+    countryNative: 'Éire',
+    flag: '🇮🇪',
+    region: 'Europe',
+    langCode: 'ga',
+    langName: 'Irish',
+    langNative: 'Gaeilge',
+    family: 'Celtic',
+    channelId: 'UCNuachtTG4Ireland',
+    curatedOnly: true,
+    videos: [
+      // Approved: IE-GA-1, IE-GA-2
+      { id: 'mA1vYbAVrMM', title: 'Nuacht RTÉ le TG4 | Irish Language TV News', minStart: 15, maxStart: 65 },
+      { id: 'uxWg_FuvzAQ', title: 'Nuacht TG4 | Teilifís na Gaeilge', minStart: 30, maxStart: 90 }
+    ]
+  },
+  {
+    id: 'gb_s4c',
+    broadcaster: 'S4C Newyddion (Cymru)',
+    countryCode: 'GB',
+    countryName: 'United Kingdom',
+    countryNative: 'Cymru / United Kingdom',
+    flag: '🇬🇧',
+    region: 'Europe',
+    langCode: 'cy',
+    langName: 'Welsh',
+    langNative: 'Cymraeg',
+    family: 'Celtic',
+    channelId: 'UCS4CNewyddionWales',
+    curatedOnly: true,
+    videos: [
+      // Approved: GB-CY-1, GB-CY-2, GB-CY-3
+      { id: 'uKcThvfjLDE', title: 'S4C Newyddion | Welsh TV News (23-07)', minStart: 10, maxStart: 55 },
+      { id: 'neBy6nx3h-U', title: 'S4C Newyddion | Welsh TV News (21-07)', minStart: 10, maxStart: 50 },
+      { id: '_qImboGmNW8', title: 'Newyddion 9 | S4C Welsh Language News', minStart: 20, maxStart: 75 }
+    ]
+  },
+  {
+    id: 'es_tv3cat',
+    broadcaster: 'TV3 Telenotícies / IB3',
+    countryCode: 'ES',
+    countryName: 'Spain',
+    countryNative: 'Catalunya / Espanya',
+    flag: '🇪🇸',
+    region: 'Europe',
+    langCode: 'ca',
+    langName: 'Catalan',
+    langNative: 'Català',
+    family: 'Romance',
+    channelId: 'UCTV3CatalunyaInfo',
+    curatedOnly: true,
+    videos: [
+      // Approved: ES-CA-1, ES-CA-2, ES-CA-3
+      { id: 'oTdN8kXaGoQ', title: 'Telenotícies Catalunya | TV3', minStart: 8, maxStart: 45 },
+      { id: 'umVzjpQp75E', title: 'Telenotícies TV3 | Reportatge Catalunya', minStart: 8, maxStart: 45 },
+      { id: 'kHMwUEZk_Zg', title: 'IB3 Notícies Vespre | Informatiu en Català', minStart: 8, maxStart: 45 }
+    ]
+  },
+  {
+    id: 'es_eitb',
+    broadcaster: 'EITB Gaur Egun (ETB1)',
+    countryCode: 'ES',
+    countryName: 'Spain',
+    countryNative: 'Euskal Herria / España',
+    flag: '🇪🇸',
+    region: 'Europe',
+    langCode: 'eu',
+    langName: 'Basque',
+    langNative: 'Euskara',
+    family: 'Isolate',
+    channelId: 'UCEITBGaurEgunBasque',
+    curatedOnly: true,
+    videos: [
+      // Approved: ES-EU-1, ES-EU-2
+      { id: 'eANkAZjx0-A', title: 'Gaur Egun Albisteak | EITB Euskal Telebista', minStart: 15, maxStart: 65 },
+      { id: '9DGoTO7bO1A', title: 'Gaur Egun ETB1 | Albistegia Euskaraz', minStart: 8, maxStart: 45 }
+    ]
+  },
+  {
+    id: 'es_tvg',
+    broadcaster: 'TVG Telexornal (Galicia)',
+    countryCode: 'ES',
+    countryName: 'Spain',
+    countryNative: 'Galicia / España',
+    flag: '🇪🇸',
+    region: 'Europe',
+    langCode: 'gl',
+    langName: 'Galician',
+    langNative: 'Galego',
+    family: 'Romance',
+    channelId: 'UCTVGTelexornalGalicia',
+    curatedOnly: true,
+    videos: [
+      // Approved: ES-GL-1, ES-GL-2
+      { id: 'hoBb3suxau0', title: 'Telexornal 14:30 | Televisión de Galicia (TVG)', minStart: 15, maxStart: 65 },
+      { id: 'fbSwfmlu7ZU', title: 'Telexornal Mediodía | Televisión de Galicia (TVG)', minStart: 15, maxStart: 65 }
+    ]
+  },
+
+  // ==========================================================================
+  // NORDIC, FINNO-UGRIC & BALTIC EUROPE
+  // (Sweden, Norway, Denmark, Finland, Iceland, Estonia, Hungary, Lithuania, Latvia)
+  // ==========================================================================
+  {
+    id: 'se_svt',
+    broadcaster: 'SVT Nyheter (Rapport)',
+    countryCode: 'SE',
+    countryName: 'Sweden',
+    countryNative: 'Sverige',
+    flag: '🇸🇪',
+    region: 'Europe',
+    langCode: 'sv',
+    langName: 'Swedish',
+    langNative: 'Svenska',
+    family: 'Germanic',
+    channelId: 'UCSVTNyheterSweden',
+    curatedOnly: true,
+    videos: [
+      // Approved: SE-1, SE-2
+      { id: 'C3qDiLqnGNw', title: 'SVT Nyheter | Nyhetsrapport Sverige', minStart: 10, maxStart: 55 },
+      { id: 'c2DhF1w7SxM', title: 'SVT Rapport Nyheter | Sverige', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'no_nrk',
+    broadcaster: 'NRK Dagsrevyen',
+    countryCode: 'NO',
+    countryName: 'Norway',
+    countryNative: 'Norge',
+    flag: '🇳🇴',
+    region: 'Europe',
+    langCode: 'no',
+    langName: 'Norwegian',
+    langNative: 'Norsk',
+    family: 'Germanic',
+    channelId: 'UCNRKDagsrevyenNorway',
+    curatedOnly: true,
+    videos: [
+      // Approved: NO-1, NO-2, NO-3
+      { id: 'jdXfmXnQBjY', title: 'Dagsrevyen | NRK Nyheter Norge (08.08)', minStart: 15, maxStart: 65 },
+      { id: 'Un-r3_SjB8U', title: 'Dagsrevyen | NRK Nyheter Norge (02.07)', minStart: 15, maxStart: 65 },
+      { id: 'I9cLrDuTYh0', title: 'Dagsrevyen | NRK Nyheter Norge (28.07)', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'dk_dr',
+    broadcaster: 'DR TV Avisen / TV2 Nyhederne',
+    countryCode: 'DK',
+    countryName: 'Denmark',
+    countryNative: 'Danmark',
+    flag: '🇩🇰',
+    region: 'Europe',
+    langCode: 'da',
+    langName: 'Danish',
+    langNative: 'Dansk',
+    family: 'Germanic',
+    channelId: 'UCDRTVAvisenDenmark',
+    curatedOnly: true,
+    videos: [
+      // Approved: DK-1, DK-3
+      { id: 'mjAZmLDYc4o', title: 'DR TV Avisen | Nyheder fra Danmark', minStart: 10, maxStart: 55 },
+      { id: '6X8l2vAXutI', title: 'TV2 Nyhederne | Indslag Danmark', minStart: 10, maxStart: 50 }
+    ]
+  },
+  {
+    id: 'fi_yle',
+    broadcaster: 'Yle Uutiset / MTV Uutiset',
+    countryCode: 'FI',
+    countryName: 'Finland',
+    countryNative: 'Suomi',
+    flag: '🇫🇮',
+    region: 'Europe',
+    langCode: 'fi',
+    langName: 'Finnish',
+    langNative: 'Suomi',
+    family: 'Uralic',
+    channelId: 'UCYleUutisetFinland',
+    curatedOnly: true,
+    videos: [
+      // Approved: FI-1 (don't use between 4:15 [255s] to 5:04 [304s]), FI-2, FI-3
+      {
+        id: 'gc-p1LaAgXg',
+        title: 'Yle TV-uutiset 18:00 | Suomen Uutiset',
+        segments: [[15, 250], [308, 600]]
+      },
+      { id: 'Bzs6ZGTv3iQ', title: 'Yle Uutiset Areena | Suomi', minStart: 15, maxStart: 65 },
+      { id: 'T7O59jdCjbM', title: 'MTV Uutiset | Suomi', minStart: 12, maxStart: 60 }
+    ]
+  },
+  {
+    id: 'is_ruv',
+    broadcaster: 'RÚV Fréttir',
+    countryCode: 'IS',
+    countryName: 'Iceland',
+    countryNative: 'Ísland',
+    flag: '🇮🇸',
+    region: 'Europe',
+    langCode: 'is',
+    langName: 'Icelandic',
+    langNative: 'Íslenska',
+    family: 'Germanic',
+    channelId: 'UCRUVFrettirIceland',
+    curatedOnly: true,
+    videos: [
+      // Approved: IS-1 (don't use between 2:14 [134s] to 2:25 [145s]), IS-2
+      {
+        id: 'iwL5A7j5vyg',
+        title: 'RÚV Kvöldfréttir (06. maí) | Ísland',
+        segments: [[15, 130], [148, 520]]
+      },
+      { id: 'chIfaYoJsTE', title: 'RÚV Kvöldfréttir (25. feb) | Ísland', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'ee_tv3',
+    broadcaster: 'TV3 Uudised Eesti',
+    countryCode: 'EE',
+    countryName: 'Estonia',
+    countryNative: 'Eesti',
+    flag: '🇪🇪',
+    region: 'Europe',
+    langCode: 'et',
+    langName: 'Estonian',
+    langNative: 'Eesti',
+    family: 'Uralic',
+    channelId: 'UCTV3UudisedEstonia',
+    curatedOnly: true,
+    videos: [
+      // Approved: EE-2, EE-3
+      { id: '9QCbcl80j04', title: 'TV3 Uudised: Toiduhindade tõus | Eesti', minStart: 10, maxStart: 55 },
+      { id: '1kGCs1Uu0F4', title: 'TV3 Uudised: Politsei kontrollis Tartus | Eesti', minStart: 10, maxStart: 55 }
+    ]
+  },
+  {
+    id: 'hu_m1',
+    broadcaster: 'M1 Híradó',
+    countryCode: 'HU',
+    countryName: 'Hungary',
+    countryNative: 'Magyarország',
+    flag: '🇭🇺',
+    region: 'Europe',
+    langCode: 'hu',
+    langName: 'Hungarian',
+    langNative: 'Magyar',
+    family: 'Uralic',
+    channelId: 'UCM1HiradoHungary',
+    curatedOnly: true,
+    videos: [
+      // Approved: HU-1, HU-2, HU-3
+      { id: 'TN1paxibb7g', title: 'M1 Híradó 19:30 (11.12) | Magyarország', minStart: 15, maxStart: 65 },
+      { id: 'arejnnN_1t4', title: 'M1 Híradó 19:30 (11.13) | Magyarország', minStart: 15, maxStart: 65 },
+      { id: '--FbJePMciM', title: 'M1 Híradó 19:30 (09.18) | Magyarország', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'lt_lrt',
+    broadcaster: 'LRT Panorama',
+    countryCode: 'LT',
+    countryName: 'Lithuania',
+    countryNative: 'Lietuva',
+    flag: '🇱🇹',
+    region: 'Europe',
+    langCode: 'lt',
+    langName: 'Lithuanian',
+    langNative: 'Lietuvių',
+    family: 'Baltic',
+    channelId: 'UCLRTPliusLithuania',
+    curatedOnly: true,
+    videos: [
+      // Approved: LT-1, LT-2, LT-3
+      { id: 'R5TJZi01o9g', title: 'Karščiai Lietuvoje | LRT Panorama', minStart: 15, maxStart: 65 },
+      { id: 'VWJuv4zotQ4', title: 'Panorama Vakaro Žinios | LRT Lietuva', minStart: 15, maxStart: 65 },
+      { id: 'dJzZoUyuZ6s', title: 'Pensijų didinimo iššūkiai | LRT Panorama', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'lv_ltv',
+    broadcaster: 'LTV Panorāma',
+    countryCode: 'LV',
+    countryName: 'Latvia',
+    countryNative: 'Latvija',
+    flag: '🇱🇻',
+    region: 'Europe',
+    langCode: 'lv',
+    langName: 'Latvian',
+    langNative: 'Latviešu',
+    family: 'Baltic',
+    channelId: 'UCLTVZinuDienestsLatvia',
+    curatedOnly: true,
+    videos: [
+      // Approved: LV-1, LV-2, LV-3
+      { id: 'CRMRXxyOIPk', title: 'LTV Panorāma | Ziņu dienests Latvija', minStart: 15, maxStart: 65 },
+      { id: '9n9mZA0rGuk', title: '11. novembra Panorāma | LTV Latvija', minStart: 15, maxStart: 65 },
+      { id: 'BmLVTSGZqYY', title: 'Panorāma un Šodienas jautājums | LTV', minStart: 15, maxStart: 65 }
+    ]
+  },
+
+  // ==========================================================================
+  // GREEK, ROMANIAN, ALBANIAN
+  // ==========================================================================
   {
     id: 'gr_ert',
     broadcaster: 'ERT News (ΕΡΤ)',
@@ -668,10 +1019,32 @@ const TV_NEWS_BROADCASTERS = [
       { id: 'JdPQv1-vheo', title: 'Jurnalul de seară | Digi24 România', minStart: 12, maxStart: 55 }
     ]
   },
+  {
+    id: 'al_topchannel',
+    broadcaster: 'Top Channel Albania',
+    countryCode: 'AL',
+    countryName: 'Albania',
+    countryNative: 'Shqipëria',
+    flag: '🇦🇱',
+    region: 'Europe',
+    langCode: 'sq',
+    langName: 'Albanian',
+    langNative: 'Shqip',
+    family: 'Indo-European',
+    channelId: 'UCTopChannelAlbania',
+    curatedOnly: true,
+    videos: [
+      // Approved: AL-1, AL-2, AL-3
+      { id: 'NnvmpFyvSIA', title: 'Edicioni Informativ 15:00 | Top Channel Albania', minStart: 15, maxStart: 65 },
+      { id: 'IHhReHjYo6Y', title: 'Edicioni Informativ 19:30 (19 Qershor) | Top Channel', minStart: 15, maxStart: 65 },
+      { id: 'sO8UOaVZrpg', title: 'Edicioni Informativ 19:30 (14 Nëntor) | Top Channel', minStart: 15, maxStart: 65 }
+    ]
+  },
 
   // ==========================================================================
-  // SLAVIC LANGUAGES & COUNTRIES (Poland, Russia, Ukraine, Czechia,
-  //                               Serbia, Croatia, Bulgaria)
+  // SLAVIC LANGUAGES & COUNTRIES (Poland, Russia, Ukraine, Belarus, Czechia,
+  //                               Slovakia, Slovenia, Croatia, Bosnia, Serbia,
+  //                               North Macedonia, Bulgaria)
   // ==========================================================================
   {
     id: 'pl_polsat',
@@ -734,6 +1107,25 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'by_belsat',
+    broadcaster: 'Белсат News (Belsat)',
+    countryCode: 'BY',
+    countryName: 'Belarus',
+    countryNative: 'Беларусь',
+    flag: '🇧🇾',
+    region: 'Europe',
+    langCode: 'be',
+    langName: 'Belarusian',
+    langNative: 'Беларуская',
+    family: 'Slavic',
+    channelId: 'UCBelsatNewsBelarus',
+    curatedOnly: true,
+    videos: [
+      // Approved: BY-1
+      { id: 'pdyPbQipRwA', title: 'Навіны Белсат | Выпуск навінаў Беларусі', minStart: 15, maxStart: 75 }
+    ]
+  },
+  {
     id: 'cz_ct24',
     broadcaster: 'ČT24 / CNN Prima NEWS',
     countryCode: 'CZ',
@@ -748,30 +1140,50 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCCNNPrimaNewsCzechia',
     curatedOnly: true,
     videos: [
-      // Approved: CZ-2, CZ-3 (CZ-1 disapproved)
+      // Approved: CZ-2, CZ-3
       { id: 'lZxtoHi8iHk', title: 'Hlavní zprávy | CNN Prima NEWS Česko', minStart: 8, maxStart: 50 },
       { id: 'equ7O-1Ext4', title: 'Newsroom ČT24 | Česká televize', minStart: 8, maxStart: 45 }
     ]
   },
   {
-    id: 'rs_rts',
-    broadcaster: 'RTS Oko / Dnevnik (Srbija)',
-    countryCode: 'RS',
-    countryName: 'Serbia',
-    countryNative: 'Србија / Srbija',
-    flag: '🇷🇸',
+    id: 'sk_ta3',
+    broadcaster: 'Televízia TA3 / TV Markíza',
+    countryCode: 'SK',
+    countryName: 'Slovakia',
+    countryNative: 'Slovensko',
+    flag: '🇸🇰',
     region: 'Europe',
-    langCode: 'sr',
-    langName: 'Serbian',
-    langNative: 'Српски',
+    langCode: 'sk',
+    langName: 'Slovak',
+    langNative: 'Slovenčina',
     family: 'Slavic',
-    channelId: 'UCRTSOkoSrbija',
+    channelId: 'UCTeleviziaTA3Slovakia',
     curatedOnly: true,
     videos: [
-      // Approved: RS-1, RS-2, RS-3
-      { id: '6D6Jpqp071Y', title: 'Posle izbora, kuda ide srpska ekonomija | RTS Oko', minStart: 15, maxStart: 60 },
-      { id: 'RnxRaIH3PQc', title: 'Politički zemljotres u Srbiji | RTS Oko', minStart: 15, maxStart: 60 },
-      { id: 'yhIhQbz3wPM', title: 'Zašto Poštanska nije Alta | RTS Oko Srbija', minStart: 15, maxStart: 60 }
+      // Approved: SK-1, SK-3
+      { id: 'RQZJ535krfY', title: 'Téma Dňa | Televízia TA3 Slovensko', minStart: 15, maxStart: 65 },
+      { id: '41ShP1fFmVs', title: 'Televízne noviny | TV Markíza Slovensko', minStart: 8, maxStart: 45 }
+    ]
+  },
+  {
+    id: 'si_poptv',
+    broadcaster: 'POP TV (24UR Slovenija)',
+    countryCode: 'SI',
+    countryName: 'Slovenia',
+    countryNative: 'Slovenija',
+    flag: '🇸🇮',
+    region: 'Europe',
+    langCode: 'sl',
+    langName: 'Slovenian',
+    langNative: 'Slovenščina',
+    family: 'Slavic',
+    channelId: 'UCPOPTV24URSlovenia',
+    curatedOnly: true,
+    videos: [
+      // Approved: SI-1, SI-2, SI-3
+      { id: 'Sz5VBqpeuVE', title: '24UR Novice | POP TV Slovenija', minStart: 15, maxStart: 65 },
+      { id: 'BNmxuweAMTE', title: '24UR: Slovenija med najbolj uspešnimi državami | POP TV', minStart: 8, maxStart: 45 },
+      { id: 'm_Ympk_DrT8', title: '24UR: Vremenska napoved in poročila | POP TV Slovenija', minStart: 8, maxStart: 45 }
     ]
   },
   {
@@ -796,6 +1208,68 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'ba_bhrt',
+    broadcaster: 'BHRT Dnevnik',
+    countryCode: 'BA',
+    countryName: 'Bosnia and Herzegovina',
+    countryNative: 'Bosna i Hercegovina',
+    flag: '🇧🇦',
+    region: 'Europe',
+    langCode: 'bs',
+    langName: 'Bosnian',
+    langNative: 'Bosanski',
+    family: 'Slavic',
+    channelId: 'UCBHRTDnevnikBosnia',
+    curatedOnly: true,
+    videos: [
+      // Approved: BA-1, BA-2, BA-3
+      { id: 'KKFa_WzT_Eo', title: 'Dnevnik 2 (17.11) | BHRT Bosna i Hercegovina', minStart: 15, maxStart: 65 },
+      { id: 'EptxGspfBDQ', title: 'Dnevnik 1 (17.11) | BHRT Bosna i Hercegovina', minStart: 15, maxStart: 65 },
+      { id: 'f7dWdChgE9E', title: 'Dnevnik 2 (23.10) | BHRT Bosna i Hercegovina', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'rs_rts',
+    broadcaster: 'RTS Oko / Dnevnik (Srbija)',
+    countryCode: 'RS',
+    countryName: 'Serbia',
+    countryNative: 'Србија / Srbija',
+    flag: '🇷🇸',
+    region: 'Europe',
+    langCode: 'sr',
+    langName: 'Serbian',
+    langNative: 'Српски',
+    family: 'Slavic',
+    channelId: 'UCRTSOkoSrbija',
+    curatedOnly: true,
+    videos: [
+      // Approved: RS-1, RS-2, RS-3
+      { id: '6D6Jpqp071Y', title: 'Posle izbora, kuda ide srpska ekonomija | RTS Oko', minStart: 15, maxStart: 60 },
+      { id: 'RnxRaIH3PQc', title: 'Politički zemljotres u Srbiji | RTS Oko', minStart: 15, maxStart: 60 },
+      { id: 'yhIhQbz3wPM', title: 'Zašto Poštanska nije Alta | RTS Oko Srbija', minStart: 15, maxStart: 60 }
+    ]
+  },
+  {
+    id: 'mk_sitel',
+    broadcaster: 'Сител Телевизија (Дневник)',
+    countryCode: 'MK',
+    countryName: 'North Macedonia',
+    countryNative: 'Северна Македонија',
+    flag: '🇲🇰',
+    region: 'Europe',
+    langCode: 'mk',
+    langName: 'Macedonian',
+    langNative: 'Македонски',
+    family: 'Slavic',
+    channelId: 'UCSitelTVMacedonia',
+    curatedOnly: true,
+    videos: [
+      // Approved: MK-2, MK-3
+      { id: 'tvzRiiYMylU', title: 'Дневник на Сител Телевизија (29.10) | Македонија', minStart: 15, maxStart: 65 },
+      { id: 'SKVoBt84Jlw', title: 'Дневник на Сител Телевизија (11.11) | Македонија', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
     id: 'bg_btv',
     broadcaster: 'bTV Новините',
     countryCode: 'BG',
@@ -810,9 +1284,75 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCbTVNoviniteBulgaria',
     curatedOnly: true,
     videos: [
-      // Approved: BG-1, BG-2 (BG-3 disapproved)
+      // Approved: BG-1, BG-2
       { id: '6t_BPL-yHq4', title: 'Катастрофата на АМ Тракия | bTV Новините България', minStart: 10, maxStart: 55 },
       { id: '_u5vx9V-ZbE', title: 'Как бурята удари София? | bTV Новините България', minStart: 10, maxStart: 55 }
+    ]
+  },
+
+  // ==========================================================================
+  // CAUCASUS (Georgia, Armenia, Azerbaijan)
+  // ==========================================================================
+  {
+    id: 'ge_1tv',
+    broadcaster: '1TV Georgia (პირველი არხი - მოამბე)',
+    countryCode: 'GE',
+    countryName: 'Georgia',
+    countryNative: 'საქართველო',
+    flag: '🇬🇪',
+    region: 'Asia',
+    langCode: 'ka',
+    langName: 'Georgian',
+    langNative: 'ქართული',
+    family: 'Kartvelian',
+    channelId: 'UC1TVGeorgiaMoambe',
+    curatedOnly: true,
+    videos: [
+      // Approved: GE-1, GE-2, GE-3
+      { id: 'bEd3Oaj3wkk', title: 'მოამბე 12 საათზე (20 ივლისი) | პირველი არხი', minStart: 15, maxStart: 65 },
+      { id: 'kQGyfCpMbf8', title: 'მოამბე 12 საათზე (18 აგვისტო) | პირველი არხი', minStart: 15, maxStart: 65 },
+      { id: 'GioRF_evNVQ', title: 'მოამბე 21 საათზე | საქართველოს პირველი არხი', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'am_1lurer',
+    broadcaster: '1Lurer Armenia (Լուրեր Առաջին ալիք)',
+    countryCode: 'AM',
+    countryName: 'Armenia',
+    countryNative: 'Հայաստան',
+    flag: '🇦🇲',
+    region: 'Asia',
+    langCode: 'hy',
+    langName: 'Armenian',
+    langNative: 'Հայերեն',
+    family: 'Indo-European',
+    channelId: 'UC1LurerArmeniaNews',
+    curatedOnly: true,
+    videos: [
+      // Approved: AM-1, AM-2, AM-3
+      { id: 'Mjn4iyJlekw', title: 'Լուրեր 21:00 Հիմնական թողարկում | Հայաստան', minStart: 15, maxStart: 65 },
+      { id: 'Y1Nnb9SdFFQ', title: 'Լուրեր 19:00 | Հայաստանի Հանրային Հեռուստաընկերություն', minStart: 15, maxStart: 65 },
+      { id: '1q9lyvETa4c', title: 'Լուրեր 10:00 | Առաջին ալիք Հայաստան', minStart: 15, maxStart: 60 }
+    ]
+  },
+  {
+    id: 'az_bakutv',
+    broadcaster: 'Baku TV Xəbər',
+    countryCode: 'AZ',
+    countryName: 'Azerbaijan',
+    countryNative: 'Azərbaycan',
+    flag: '🇦🇿',
+    region: 'Asia',
+    langCode: 'az',
+    langName: 'Azerbaijani',
+    langNative: 'Azərbaycanca',
+    family: 'Turkic',
+    channelId: 'UCBakuTVAzerbaijan',
+    curatedOnly: true,
+    videos: [
+      // Approved: AZ-1, AZ-2
+      { id: 'Qj74tyNQgeo', title: 'Xəbərlər və Təhlil | Baku TV Azərbaycan', minStart: 15, maxStart: 65 },
+      { id: 'Qsjek9qYBsc', title: 'Baku TV Xəbər Reportajı | Azərbaycan', minStart: 6, maxStart: 35 }
     ]
   },
 
@@ -902,7 +1442,7 @@ const TV_NEWS_BROADCASTERS = [
   },
 
   // ==========================================================================
-  // TURKISH, KAZAKH, UZBEK, MONGOLIAN
+  // TURKISH, KAZAKH, KYRGYZ, UZBEK, TAJIK, PASHTO, MONGOLIAN
   // ==========================================================================
   {
     id: 'tr_trthaber',
@@ -945,6 +1485,27 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'kg_alatoo',
+    broadcaster: 'Ала-Тоо 24 (Кыргызстан)',
+    countryCode: 'KG',
+    countryName: 'Kyrgyzstan',
+    countryNative: 'Кыргызстан',
+    flag: '🇰🇬',
+    region: 'Asia',
+    langCode: 'ky',
+    langName: 'Kyrgyz',
+    langNative: 'Кыргызча',
+    family: 'Turkic',
+    channelId: 'UCAlaToo24Kyrgyzstan',
+    curatedOnly: true,
+    videos: [
+      // Approved: KG-1, KG-2, KG-3
+      { id: 'S-7XGV40J7E', title: 'Кыргызстан жаңылыктары (26.06) | Ала-Тоо 24', minStart: 15, maxStart: 65 },
+      { id: 'PkNFCr_eCzg', title: 'Кыргызстан жаңылыктары (12.11) | Ала-Тоо 24', minStart: 15, maxStart: 65 },
+      { id: 'td-CuCHlHKw', title: 'Кыргызстан жаңылыктары (08.11) | Ала-Тоо 24', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
     id: 'uz_uzbekiston24',
     broadcaster: 'Oʻzbekiston 24 (Axborot 24)',
     countryCode: 'UZ',
@@ -962,6 +1523,48 @@ const TV_NEWS_BROADCASTERS = [
       // Approved: UZ-1, UZ-2
       { id: 'RtDme8PmXqQ', title: 'Mobil reportaj | Axborot 24 Oʻzbekiston 24', minStart: 10, maxStart: 55 },
       { id: 'ljOyvYmLJNw', title: 'Axborot 24 Yangiliklar | Oʻzbekiston 24', minStart: 6, maxStart: 40 }
+    ]
+  },
+  {
+    id: 'tj_ozodi',
+    broadcaster: 'Ахбори Тоҷикистон (Радиои Озодӣ)',
+    countryCode: 'TJ',
+    countryName: 'Tajikistan',
+    countryNative: 'Тоҷикистон',
+    flag: '🇹🇯',
+    region: 'Asia',
+    langCode: 'tg',
+    langName: 'Tajik',
+    langNative: 'Тоҷикӣ',
+    family: 'Iranian',
+    channelId: 'UCOzodiVideoTajikistan',
+    curatedOnly: true,
+    videos: [
+      // Approved: TJ-1, TJ-2, TJ-3
+      { id: 'v3glClNs3Rs', title: 'Ахбори Тоҷикистон ва ҷаҳон (22.10)', minStart: 15, maxStart: 65 },
+      { id: 'SSpK5ROwjkI', title: 'Ахбори Тоҷикистон ва ҷаҳон (06.08)', minStart: 15, maxStart: 65 },
+      { id: 'sxqnPGJVFRo', title: 'Ахбори Тоҷикистон (13.10)', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'af_shamshad',
+    broadcaster: 'Shamshad TV News (شمشاد نیوز)',
+    countryCode: 'AF',
+    countryName: 'Afghanistan',
+    countryNative: 'افغانستان',
+    flag: '🇦🇫',
+    region: 'Asia',
+    langCode: 'ps',
+    langName: 'Pashto',
+    langNative: 'پښتو',
+    family: 'Iranian',
+    channelId: 'UCShamshadNewsAfghanistan',
+    curatedOnly: true,
+    videos: [
+      // Approved: AF-1, AF-2, AF-3
+      { id: 'L89yPLNlj7g', title: 'د شمشاد نیوز د دوو بجو خبري ټولګه (10/05) | Shamshad News', minStart: 15, maxStart: 65 },
+      { id: 'gT-c1U_ACTc', title: 'د شمشاد نیوز د اوو بجو خبري ټولګه (19/06) | Shamshad News', minStart: 15, maxStart: 65 },
+      { id: 'H9Ue6VLDtUk', title: 'د شمشاد نیوز د دوو بجو خبري ټولګه (19/09) | Shamshad News', minStart: 15, maxStart: 65 }
     ]
   },
   {
@@ -987,7 +1590,7 @@ const TV_NEWS_BROADCASTERS = [
   },
 
   // ==========================================================================
-  // PERSIAN, HEBREW, HINDI, URDU, BENGALI
+  // PERSIAN, HEBREW, HINDI, URDU, BENGALI, SINHALA, NEPALI
   // ==========================================================================
   {
     id: 'ir_bbcpersian',
@@ -1088,11 +1691,53 @@ const TV_NEWS_BROADCASTERS = [
       { id: '2cFTlHu8afU', title: 'বিভাগীয় সময় | Somoy TV Bangladesh', minStart: 12, maxStart: 55 }
     ]
   },
+  {
+    id: 'lk_adaderana',
+    broadcaster: 'Ada Derana (අද දෙරණ)',
+    countryCode: 'LK',
+    countryName: 'Sri Lanka',
+    countryNative: 'ශ්‍රී ලංකාව',
+    flag: '🇱🇰',
+    region: 'Asia',
+    langCode: 'si',
+    langName: 'Sinhala',
+    langNative: 'සිංහල',
+    family: 'Indo-Aryan',
+    channelId: 'UCAdaDeranaSriLanka',
+    curatedOnly: true,
+    videos: [
+      // Approved: LK-1, LK-2, LK-3
+      { id: 'hVJRyxUaYI4', title: 'අද දෙරණ 6.55 ප්‍රධාන පුවත් විකාශය (18.11) | Ada Derana', minStart: 15, maxStart: 65 },
+      { id: '-HDHD_SDHMU', title: 'අද දෙරණ 6.55 ප්‍රධාන පුවත් විකාශය (17.11) | Ada Derana', minStart: 15, maxStart: 65 },
+      { id: 'nCnY2cayQvI', title: 'අද දෙරණ 6.55 ප්‍රධාන පුවත් විකාශය (16.11) | Ada Derana', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
+    id: 'np_nepalinews',
+    broadcaster: 'Nepali Samachar Bulletin',
+    countryCode: 'NP',
+    countryName: 'Nepal',
+    countryNative: 'नेपाल',
+    flag: '🇳🇵',
+    region: 'Asia',
+    langCode: 'ne',
+    langName: 'Nepali',
+    langNative: 'नेपाली',
+    family: 'Indo-Aryan',
+    channelId: 'UCNepaliNewsBulletin',
+    curatedOnly: true,
+    videos: [
+      // Approved: NP-1, NP-2, NP-3
+      { id: 'UbroZIRRjW8', title: 'आजका मुख्य समाचार | Nepali News Bulletin', minStart: 15, maxStart: 65 },
+      { id: 'OQ1kLWnYGwY', title: 'नेपाली समाचार बुलेटिन | Nepali Khabar Media', minStart: 15, maxStart: 65 },
+      { id: '5jnOPUADP0k', title: 'आजका समाचार | Nepal News TV', minStart: 15, maxStart: 65 }
+    ]
+  },
 
   // ==========================================================================
   // EAST & SOUTHEAST ASIA (Japan, South Korea, North Korea, Taiwan,
   //                        Mainland China, Hong Kong, Vietnam, Thailand,
-  //                        Cambodia, Myanmar, Indonesia, Malaysia, Philippines)
+  //                        Laos, Cambodia, Myanmar, Indonesia, Malaysia, Philippines)
   // ==========================================================================
   {
     id: 'jp_ann',
@@ -1255,6 +1900,27 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'la_lntv',
+    broadcaster: 'LNTV Laos (ໂທລະພາບແຫ່ງຊາດລາວ ທຊລ 1)',
+    countryCode: 'LA',
+    countryName: 'Laos',
+    countryNative: 'ປະເທດລາວ',
+    flag: '🇱🇦',
+    region: 'Asia',
+    langCode: 'lo',
+    langName: 'Lao',
+    langNative: 'ພາສາລາວ',
+    family: 'Tai-Kadai',
+    channelId: 'UCLNTVLaosNews',
+    curatedOnly: true,
+    videos: [
+      // Approved: LA-1, LA-2, LA-3
+      { id: 'SAkgJ1UGY7g', title: 'ຂ່າວພາກທ່ຽງ (18-11) | ໂທລະພາບແຫ່ງຊາດລາວ LNTV', minStart: 15, maxStart: 65 },
+      { id: 'P00FwblHfoc', title: 'ຂ່າວພາກທ່ຽງ (16-11) | ໂທລະພາບແຫ່ງຊາດລາວ LNTV', minStart: 15, maxStart: 65 },
+      { id: 'GXXvycWOPt4', title: 'ຂ່າວພາກທ່ຽງ (13-06) | ໂທລະພາບແຫ່ງຊາດລາວ LNTV', minStart: 15, maxStart: 65 }
+    ]
+  },
+  {
     id: 'kh_btv',
     broadcaster: 'BTV News Cambodia',
     countryCode: 'KH',
@@ -1269,7 +1935,7 @@ const TV_NEWS_BROADCASTERS = [
     channelId: 'UCBTVNewsCambodia',
     curatedOnly: true,
     videos: [
-      // Approved: KH-2 (KH-1 disapproved)
+      // Approved: KH-2
       { id: 'jHLTI50NULk', title: 'ព័ត៌មានសំខាន់ៗ | BTV News Cambodia', minStart: 15, maxStart: 70 }
     ]
   },
@@ -1390,15 +2056,21 @@ const COUNTRY_TRANSLATIONS = {
     BR: 'Brasil', PT: 'Portugal', AO: 'Angola', MZ: 'Mozambique', MO: 'Macao',
     FR: 'Francia', BE: 'Bélgica', CH: 'Suiza',
     DE: 'Alemania', AT: 'Austria',
-    IT: 'Italia', NL: 'Países Bajos', GR: 'Grecia', RO: 'Rumania',
-    PL: 'Polonia', RU: 'Rusia', UA: 'Ucrania', CZ: 'Chequia',
-    RS: 'Serbia', HR: 'Croacia', BG: 'Bulgaria',
-    TR: 'Turquía', KZ: 'Kazajistán', UZ: 'Uzbekistán', MN: 'Mongolia',
+    IT: 'Italia', NL: 'Países Bajos', GR: 'Grecia', RO: 'Rumania', AL: 'Albania',
+    SE: 'Suecia', NO: 'Noruega', DK: 'Dinamarca', FI: 'Finlandia', IS: 'Islandia',
+    EE: 'Estonia', HU: 'Hungría', LT: 'Lituania', LV: 'Letonia',
+    PL: 'Polonia', RU: 'Rusia', UA: 'Ucrania', BY: 'Bielorrusia',
+    CZ: 'Chequia', SK: 'Eslovaquia', SI: 'Eslovenia', HR: 'Croacia',
+    BA: 'Bosnia y Herzegovina', RS: 'Serbia', MK: 'Macedonia del Norte', BG: 'Bulgaria',
+    GE: 'Georgia', AM: 'Armenia', AZ: 'Azerbaiyán',
+    TR: 'Turquía', KZ: 'Kazajistán', KG: 'Kirguistán', UZ: 'Uzbekistán',
+    TJ: 'Tayikistán', AF: 'Afganistán', MN: 'Mongolia',
     QA: 'Catar', SA: 'Arabia Saudita', MA: 'Marruecos', EG: 'Egipto',
     IR: 'Irán', IL: 'Israel', IN: 'India', PK: 'Pakistán', BD: 'Bangladés',
+    LK: 'Sri Lanka', NP: 'Nepal',
     JP: 'Japón', KR: 'Corea del Sur', KP: 'Corea del Norte',
     TW: 'Taiwán', CN: 'China', HK: 'Hong Kong',
-    VN: 'Vietnam', TH: 'Tailandia', KH: 'Camboya', MM: 'Birmania (Myanmar)',
+    VN: 'Vietnam', TH: 'Tailandia', LA: 'Laos', KH: 'Camboya', MM: 'Birmania (Myanmar)',
     ID: 'Indonesia', MY: 'Malasia', PH: 'Filipinas', KE: 'Kenia'
   },
   pt: {
@@ -1409,15 +2081,21 @@ const COUNTRY_TRANSLATIONS = {
     BR: 'Brasil', PT: 'Portugal', AO: 'Angola', MZ: 'Moçambique', MO: 'Macau',
     FR: 'França', BE: 'Bélgica', CH: 'Suíça',
     DE: 'Alemanha', AT: 'Áustria',
-    IT: 'Itália', NL: 'Países Baixos', GR: 'Grécia', RO: 'Romênia',
-    PL: 'Polônia', RU: 'Rússia', UA: 'Ucrânia', CZ: 'Tchéquia',
-    RS: 'Sérvia', HR: 'Croácia', BG: 'Bulgária',
-    TR: 'Turquia', KZ: 'Cazaquistão', UZ: 'Uzbequistão', MN: 'Mongólia',
+    IT: 'Itália', NL: 'Países Baixos', GR: 'Grécia', RO: 'Romênia', AL: 'Albânia',
+    SE: 'Suécia', NO: 'Noruega', DK: 'Dinamarca', FI: 'Finlândia', IS: 'Islândia',
+    EE: 'Estônia', HU: 'Hungria', LT: 'Lituânia', LV: 'Letônia',
+    PL: 'Polônia', RU: 'Rússia', UA: 'Ucrânia', BY: 'Bielorrússia',
+    CZ: 'Tchéquia', SK: 'Eslováquia', SI: 'Eslovênia', HR: 'Croácia',
+    BA: 'Bósnia e Herzegovina', RS: 'Sérvia', MK: 'Macedônia do Norte', BG: 'Bulgária',
+    GE: 'Geórgia', AM: 'Armênia', AZ: 'Azerbaijão',
+    TR: 'Turquia', KZ: 'Cazaquistão', KG: 'Quirguistão', UZ: 'Uzbequistão',
+    TJ: 'Tajiquistão', AF: 'Afeganistão', MN: 'Mongólia',
     QA: 'Catar', SA: 'Arábia Saudita', MA: 'Marrocos', EG: 'Egito',
     IR: 'Irã', IL: 'Israel', IN: 'Índia', PK: 'Paquistão', BD: 'Bangladesh',
+    LK: 'Sri Lanka', NP: 'Nepal',
     JP: 'Japão', KR: 'Coreia do Sul', KP: 'Coreia do Norte',
     TW: 'Taiwan', CN: 'China', HK: 'Hong Kong',
-    VN: 'Vietnã', TH: 'Tailândia', KH: 'Camboja', MM: 'Mianmar',
+    VN: 'Vietnã', TH: 'Tailândia', LA: 'Laos', KH: 'Camboja', MM: 'Mianmar',
     ID: 'Indonésia', MY: 'Malásia', PH: 'Filipinas', KE: 'Quênia'
   }
 };
