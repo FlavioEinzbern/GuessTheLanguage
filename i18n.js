@@ -124,7 +124,13 @@ const I18N = {
     categoryWarningText: 'At least one language category must remain selected.',
     selectAllText: 'Select All',
     resetText: 'Reset',
-    doneText: 'Done'
+    doneText: 'Done',
+    audioLangModalTitle: 'Custom Language Categories',
+    audioLangModalSub: 'Choose which language branches can appear in Audio Mode.',
+    audioTerrModalTitle: 'Custom Territories',
+    audioTerrModalSub: 'Choose which world territories can appear in Guess the Country.',
+    trapToggleTitle: 'Cross-continent trap',
+    trapToggleDesc: 'Allows countries from unselected continents that share a selected language (e.g. Americas/Oceania/Africa sharing European languages).'
   },
   es: {
     headerTitle: 'Adivina el Idioma',
@@ -245,7 +251,13 @@ const I18N = {
     categoryWarningText: 'Debes mantener al menos una categoría seleccionada.',
     selectAllText: 'Seleccionar Todo',
     resetText: 'Restablecer',
-    doneText: 'Listo'
+    doneText: 'Listo',
+    audioLangModalTitle: 'Categorías de Idiomas (Audio)',
+    audioLangModalSub: 'Elige qué ramas lingüísticas pueden aparecer en el Modo Audio.',
+    audioTerrModalTitle: 'Territorios Personalizados',
+    audioTerrModalSub: 'Elige qué territorios pueden aparecer en Adivinar el País.',
+    trapToggleTitle: 'Trampa intercontinental',
+    trapToggleDesc: 'Incluye países de continentes no seleccionados que comparten el mismo idioma (ej. América/Oceanía/África con lenguas europeas).'
   },
   pt: {
     headerTitle: 'Adivinhe o Idioma',
@@ -366,7 +378,13 @@ const I18N = {
     categoryWarningText: 'Pelo menos uma categoria de idioma deve permanecer selecionada.',
     selectAllText: 'Selecionar Tudo',
     resetText: 'Redefinir',
-    doneText: 'Concluir'
+    doneText: 'Concluir',
+    audioLangModalTitle: 'Categorias de Idiomas (Áudio)',
+    audioLangModalSub: 'Escolha quais ramos linguísticos podem aparecer no Modo Áudio.',
+    audioTerrModalTitle: 'Territórios Personalizados',
+    audioTerrModalSub: 'Escolha quais territórios podem aparecer em Adivinhar o País.',
+    trapToggleTitle: 'Armadilha intercontinental',
+    trapToggleDesc: 'Inclui países de continentes não selecionados que falam o mesmo idioma (ex.: Américas/Oceania/África com línguas europeias).'
   }
 };
 
@@ -380,7 +398,8 @@ const MANUAL_LANG_NAMES = {
     ga: 'Irlandés', sq: 'Albanés', be: 'Bielorruso', mk: 'Macedonio',
     bs: 'Bosnio', sl: 'Esloveno', sk: 'Eslovaco', lv: 'Letón',
     lt: 'Lituano', hu: 'Húngaro', et: 'Estonio', is: 'Islandés',
-    fi: 'Finés', da: 'Danés', no: 'Noruego', sv: 'Sueco'
+    fi: 'Finés', da: 'Danés', no: 'Noruego', sv: 'Sueco',
+    af: 'Afrikáans', jv: 'Javanés'
   },
   pt: {
     nah: 'Náuatle', scn: 'Siciliano', ast: 'Asturiano', ckb: 'Curdo central',
@@ -391,7 +410,8 @@ const MANUAL_LANG_NAMES = {
     ga: 'Irlandês', sq: 'Albanês', be: 'Bielorrusso', mk: 'Macedônio',
     bs: 'Bósnio', sl: 'Esloveno', sk: 'Eslovaco', lv: 'Letão',
     lt: 'Lituano', hu: 'Húngaro', et: 'Estoniano', is: 'Islandês',
-    fi: 'Finlandês', da: 'Dinamarquês', no: 'Norueguês', sv: 'Sueco'
+    fi: 'Finlandês', da: 'Dinamarquês', no: 'Norueguês', sv: 'Sueco',
+    af: 'Africâner', jv: 'Javanês'
   }
 };
 
