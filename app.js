@@ -1,8 +1,24 @@
 /**
  * ============================================================================
- * GAME STATE, DISTRACTOR LOGIC & UI CONTROLLER (TEXT & AUDIO MODES)
+ * GAME STATE, DISTRACTOR ALGORITHMS & UI CONTROLLER
+ * Supports both Text Mode (Wikipedia) and Audio Mode (World TV News)
  * ============================================================================
  */
+
+const DEFAULT_AUDIO_LANG_LEAVES = ['euro_romance', 'euro_germanic', 'euro_slavic', 'euro_others', 'asia_east'];
+const ALL_AUDIO_LANG_LEAVES = [
+  'euro_romance', 'euro_germanic', 'euro_slavic', 'euro_others',
+  'asia_east', 'asia_se', 'asia_south',
+  'afr_west_asia_other'
+];
+
+const DEFAULT_AUDIO_TERR_LEAVES = ['eu_west', 'eu_north', 'eu_east_balkan', 'ao_east_asia', 'ao_oceania'];
+const ALL_AUDIO_TERR_LEAVES = [
+  'am_north', 'am_carib_central', 'am_south',
+  'eu_west', 'eu_north', 'eu_east_balkan',
+  'ao_east_asia', 'ao_se_asia', 'ao_south_asia', 'ao_oceania',
+  'afwa_subsaharan', 'afwa_mena_caucasus'
+];
 
 const state = {
   appMode: 'text', // 'text' (Wikipedia) | 'audio' (TV News)
@@ -14,6 +30,9 @@ const state = {
     difficulty: 'easy',      // 'easy' | 'medium' | 'hard'
     audioTarget: 'language', // 'language' | 'country'
     customCategories: new Set(['european', 'asian']),
+    audioLangCategories: new Set(DEFAULT_AUDIO_LANG_LEAVES),
+    audioTerritories: new Set(DEFAULT_AUDIO_TERR_LEAVES),
+    crossContinentTrap: true,
     alwaysShowNative: false,
     showBlurredVideo: false,
     videoDisplayMode: 'off', // 'off' | 'blurred' | 'clear' (secret 3rd option)
@@ -26,48 +45,60 @@ const state = {
   streak: 0,
   bestStreak: 0,
   lives: 3,
-  currentQuestion: null,
-  selectedCode: null,
+  maxLives: 3,
   history: [],
+  currentQuestion: null,
   prefetchQueue: [],
-  prefetchTargetSize: 3,
+  prefetchTargetSize: 5,
   prefetchInFlight: false,
   prefetchEpoch: 0
 };
 
+/**
+ * Helper: Returns active UI translation dictionary
+ */
 function t() {
   return I18N[state.config.uiLang] || I18N.en;
 }
 
+/**
+ * Translates any Wikipedia language name into the selected UI language ('en', 'es', 'pt').
+ */
 function getLocalizedLanguageName(langObj) {
-  const code = langObj.code || langObj.langCode;
-  const fallbackName = langObj.name || langObj.langName;
-  const ui = state.config.uiLang;
-  if (ui === 'en') return fallbackName;
-  if (MANUAL_LANG_NAMES[ui] && MANUAL_LANG_NAMES[ui][code]) {
-    return MANUAL_LANG_NAMES[ui][code];
+  const uiLang = state.config.uiLang;
+  if (uiLang === 'en') return langObj.name;
+  if (MANUAL_LANG_NAMES[uiLang] && MANUAL_LANG_NAMES[uiLang][langObj.code]) {
+    return MANUAL_LANG_NAMES[uiLang][langObj.code];
   }
   try {
-    const dn = new Intl.DisplayNames([ui], { type: 'language' });
-    const translated = dn.of(code);
-    if (translated && translated.toLowerCase() !== code.toLowerCase()) {
-      return translated.charAt(0).toUpperCase() + translated.slice(1);
+    const displayNames = new Intl.DisplayNames([uiLang], { type: 'language' });
+    const localized = displayNames.of(langObj.code);
+    if (localized && localized.toLowerCase() !== langObj.code.toLowerCase()) {
+      return localized.charAt(0).toUpperCase() + localized.slice(1);
     }
   } catch (e) {}
-  return fallbackName;
+  return langObj.name;
 }
 
+/**
+ * Translates a country name into the active UI language ('en', 'es', 'pt').
+ */
 function getLocalizedCountryName(broadcasterObj) {
-  const code = broadcasterObj.countryCode;
-  const ui = state.config.uiLang;
-  if (ui !== 'en' && COUNTRY_TRANSLATIONS[ui] && COUNTRY_TRANSLATIONS[ui][code]) {
-    return COUNTRY_TRANSLATIONS[ui][code];
+  const uiLang = state.config.uiLang;
+  if (uiLang === 'en') return broadcasterObj.countryName;
+  if (COUNTRY_TRANSLATIONS[uiLang] && COUNTRY_TRANSLATIONS[uiLang][broadcasterObj.countryCode]) {
+    return COUNTRY_TRANSLATIONS[uiLang][broadcasterObj.countryCode];
   }
+  try {
+    const displayNames = new Intl.DisplayNames([uiLang], { type: 'region' });
+    const localized = displayNames.of(broadcasterObj.countryCode);
+    if (localized) return localized;
+  } catch (e) {}
   return broadcasterObj.countryName;
 }
 
 /**
- * Returns the filtered array of Wikipedia languages based on the active pool setting.
+ * Returns the active list of Wikipedia language objects based on the selected Text pool.
  */
 function getActiveLanguagePool() {
   if (state.config.pool === 'stable') {
@@ -76,10 +107,9 @@ function getActiveLanguagePool() {
   if (state.config.pool === 'experimental') {
     return WIKI_LANGUAGES;
   }
-  const customFiltered = WIKI_LANGUAGES.filter(l =>
-    l.cats.some(c => state.config.customCategories.has(c))
-  );
-  return customFiltered.length >= 4 ? customFiltered : WIKI_LANGUAGES.filter(l => l.pool === 'stable');
+  const selected = state.config.customCategories;
+  const filtered = WIKI_LANGUAGES.filter(l => l.cats.some(c => selected.has(c)));
+  return filtered.length >= 4 ? filtered : WIKI_LANGUAGES.filter(l => l.pool === 'stable');
 }
 
 function shuffleArray(arr) {
@@ -92,153 +122,149 @@ function shuffleArray(arr) {
 }
 
 /**
- * Checks whether two scripts are identical or belong to the same visually similar macro-script group.
+ * ============================================================================
+ * TEXT MODE DISTRACTOR SELECTION ALGORITHMS (Easy, Medium, Hard)
+ * ============================================================================
  */
-function areScriptsVisuallySimilar(scriptA, scriptB) {
-  if (scriptA === scriptB) return true;
-  if (typeof HARD_MACRO_SCRIPT_GROUPS !== 'undefined') {
-    return HARD_MACRO_SCRIPT_GROUPS.some(group => group.includes(scriptA) && group.includes(scriptB));
-  }
-  return false;
-}
-
-/**
- * Builds the 4 language answer options for TEXT mode according to Easy, Medium, or Hard rules.
- */
-function buildFourOptions(targetLang, difficultyOverride) {
-  const difficulty = difficultyOverride || state.config.difficulty;
-  const pool = getActiveLanguagePool();
-  const others = pool.filter(l => l.code !== targetLang.code);
+function selectTextDistractorsForDifficulty(targetLang, difficulty) {
+  const activePool = getActiveLanguagePool();
+  const othersFromActive = activePool.filter(l => l.code !== targetLang.code);
   const allOthers = WIKI_LANGUAGES.filter(l => l.code !== targetLang.code);
-  let distractors = [];
 
   if (difficulty === 'easy') {
-    distractors = shuffleArray(others).slice(0, 3);
-  } else if (difficulty === 'medium') {
-    const matchingClusters = MEDIUM_COUSIN_CLUSTERS.filter(cl => cl.includes(targetLang.code));
-    const cousinCodes = new Set();
-    matchingClusters.forEach(cl => cl.forEach(c => { if (c !== targetLang.code) cousinCodes.add(c); }));
+    const source = othersFromActive.length >= 3 ? othersFromActive : allOthers;
+    return shuffleArray(source).slice(0, 3);
+  }
 
-    let clusterCandidates = others.filter(l => cousinCodes.has(l.code));
-    if (clusterCandidates.length < 3) {
-      clusterCandidates = allOthers.filter(l => cousinCodes.has(l.code));
+  if (difficulty === 'medium') {
+    const cousinSet = new Set();
+    for (const cluster of MEDIUM_COUSIN_CLUSTERS) {
+      if (cluster.includes(targetLang.code)) {
+        cluster.forEach(code => {
+          if (code !== targetLang.code) cousinSet.add(code);
+        });
+      }
     }
 
-    const canAddMediumCandidate = (cand) => {
-      if (distractors.some(d => d.code === cand.code)) return false;
-      const currentOptions = [targetLang, ...distractors];
-      const similarScriptCount = currentOptions.filter(o => areScriptsVisuallySimilar(o.script, cand.script)).length;
-      const sameFamilyCount = currentOptions.filter(o => o.family === cand.family).length;
-      return similarScriptCount < 2 && sameFamilyCount < 2;
+    const activeCousins = othersFromActive.filter(l => cousinSet.has(l.code));
+    const globalCousins = allOthers.filter(l => cousinSet.has(l.code));
+    const diffScriptCousins = activeCousins.filter(l => l.script !== targetLang.script);
+    const sameFamilyDiffScript = othersFromActive.filter(
+      l => l.family === targetLang.family && l.script !== targetLang.script
+    );
+
+    const chosen = [];
+    const addUnique = (candidates) => {
+      for (const c of shuffleArray(candidates)) {
+        if (chosen.length >= 3) break;
+        if (!chosen.some(item => item.code === c.code)) {
+          chosen.push(c);
+        }
+      }
     };
 
-    const diffScriptCousins = shuffleArray(
-      clusterCandidates.filter(l => !areScriptsVisuallySimilar(l.script, targetLang.script))
-    );
-    const sameScriptCousins = shuffleArray(
-      clusterCandidates.filter(l => areScriptsVisuallySimilar(l.script, targetLang.script))
-    );
+    addUnique(diffScriptCousins);
+    addUnique(sameFamilyDiffScript);
+    addUnique(activeCousins);
+    addUnique(globalCousins);
+    addUnique(othersFromActive);
+    addUnique(allOthers);
 
-    for (const cand of sameScriptCousins) {
-      if (canAddMediumCandidate(cand)) {
-        distractors.push(cand);
-        break;
-      }
-    }
-
-    for (const cand of diffScriptCousins) {
-      if (distractors.length >= 3) break;
-      if (canAddMediumCandidate(cand)) {
-        distractors.push(cand);
-      }
-    }
-
-    const diversePoolFallback = [
-      ...shuffleArray(others.filter(l => !areScriptsVisuallySimilar(l.script, targetLang.script))),
-      ...shuffleArray(allOthers.filter(l => !areScriptsVisuallySimilar(l.script, targetLang.script))),
-      ...shuffleArray(others.filter(l => l.family !== targetLang.family))
-    ];
-    for (const cand of diversePoolFallback) {
-      if (distractors.length >= 3) break;
-      if (canAddMediumCandidate(cand)) {
-        distractors.push(cand);
-      }
-    }
-
-    for (const cand of shuffleArray(others)) {
-      if (distractors.length >= 3) break;
-      if (!distractors.some(d => d.code === cand.code)) {
-        const sameFamilyCount = [targetLang, ...distractors].filter(o => o.family === cand.family).length;
-        if (sameFamilyCount < 2) distractors.push(cand);
-      }
-    }
-  } else {
-    const poolSameScriptFamily = shuffleArray(others.filter(l => l.script === targetLang.script && l.family === targetLang.family));
-    const allSameScriptFamily = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family === targetLang.family));
-    const poolSameScriptOnly = shuffleArray(others.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
-    const allSameScriptOnly = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
-
-    const matchingMacroGroups = (typeof HARD_MACRO_SCRIPT_GROUPS !== 'undefined' ? HARD_MACRO_SCRIPT_GROUPS : [])
-      .filter(group => group.includes(targetLang.script));
-    const macroScripts = new Set();
-    matchingMacroGroups.forEach(group => group.forEach(s => {
-      if (s !== targetLang.script) macroScripts.add(s);
-    }));
-
-    const poolMacroMatches = shuffleArray(others.filter(l => macroScripts.has(l.script)));
-    const allMacroMatches = shuffleArray(allOthers.filter(l => macroScripts.has(l.script)));
-    const sameFamilyFallback = shuffleArray(others.filter(l => l.family === targetLang.family));
-
-    const prioritizedHardCandidates = [
-      ...poolSameScriptFamily,
-      ...allSameScriptFamily,
-      ...poolSameScriptOnly,
-      ...allSameScriptOnly,
-      ...poolMacroMatches,
-      ...allMacroMatches,
-      ...sameFamilyFallback
-    ];
-
-    for (const cand of prioritizedHardCandidates) {
-      if (distractors.length >= 3) break;
-      if (!distractors.some(d => d.code === cand.code)) {
-        distractors.push(cand);
-      }
-    }
+    return chosen.slice(0, 3);
   }
 
-  for (const fallback of shuffleArray(others)) {
-    if (distractors.length >= 3) break;
-    if (!distractors.some(d => d.code === fallback.code)) distractors.push(fallback);
-  }
+  // HARD MODE
+  const sameScriptActive = othersFromActive.filter(l => l.script === targetLang.script);
+  const sameScriptGlobal = allOthers.filter(l => l.script === targetLang.script);
+  const sameFamilyAndScript = sameScriptActive.filter(l => l.family === targetLang.family);
 
-  return shuffleArray([targetLang, ...distractors.slice(0, 3)]);
+  let macroScripts = [];
+  for (const group of HARD_MACRO_SCRIPT_GROUPS) {
+    if (group.includes(targetLang.script)) {
+      macroScripts = group;
+      break;
+    }
+  }
+  const macroScriptCandidates = macroScripts.length > 0
+    ? allOthers.filter(l => macroScripts.includes(l.script))
+    : [];
+
+  const chosen = [];
+  const addUnique = (candidates) => {
+    for (const c of shuffleArray(candidates)) {
+      if (chosen.length >= 3) break;
+      if (!chosen.some(item => item.code === c.code)) {
+        chosen.push(c);
+      }
+    }
+  };
+
+  addUnique(sameFamilyAndScript);
+  addUnique(sameScriptActive);
+  addUnique(sameScriptGlobal);
+  addUnique(macroScriptCandidates);
+  addUnique(othersFromActive);
+  addUnique(allOthers);
+
+  return chosen.slice(0, 3);
 }
 
 function buildAllDifficultyOptions(targetLang) {
   return {
-    easy: buildFourOptions(targetLang, 'easy'),
-    medium: buildFourOptions(targetLang, 'medium'),
-    hard: buildFourOptions(targetLang, 'hard')
+    easy: shuffleArray([targetLang, ...selectTextDistractorsForDifficulty(targetLang, 'easy')]),
+    medium: shuffleArray([targetLang, ...selectTextDistractorsForDifficulty(targetLang, 'medium')]),
+    hard: shuffleArray([targetLang, ...selectTextDistractorsForDifficulty(targetLang, 'hard')])
   };
+}
+
+/**
+ * ============================================================================
+ * AUDIO POOL FILTERING (LANGUAGE TREE & TERRITORY TREE + CROSS-CONTINENT TRAP)
+ * ============================================================================
+ */
+function getActiveAudioBroadcastersForLangMode() {
+  const activeCats = state.config.audioLangCategories;
+  const filtered = TV_NEWS_BROADCASTERS.filter(b => activeCats.has(b.langCat));
+  return filtered.length > 0 ? filtered : TV_NEWS_BROADCASTERS;
+}
+
+function getActiveAudioBroadcastersForCountryMode() {
+  const activeTerr = state.config.audioTerritories;
+  const directBroadcasters = TV_NEWS_BROADCASTERS.filter(b => activeTerr.has(b.territory));
+  const baseList = directBroadcasters.length > 0 ? directBroadcasters : TV_NEWS_BROADCASTERS;
+
+  if (!state.config.crossContinentTrap) {
+    return baseList;
+  }
+
+  // Cross-Continent Trap: find all languages spoken in the selected territories,
+  // and allow broadcasters from OTHER continents that share any of those languages!
+  const allowedSharedLangs = new Set(baseList.map(b => b.langCode));
+  const mergedMap = new Map();
+  baseList.forEach(b => mergedMap.set(b.id, b));
+
+  TV_NEWS_BROADCASTERS.forEach(b => {
+    if (allowedSharedLangs.has(b.langCode) && !mergedMap.has(b.id)) {
+      mergedMap.set(b.id, b);
+    }
+  });
+
+  return Array.from(mergedMap.values());
 }
 
 /**
  * ============================================================================
  * AUDIO MODE QUESTION & DISTRACTOR GENERATOR (LANGUAGE OR COUNTRY)
  * ============================================================================
- * - In "Guess the Country" mode, avoids repeating the same spoken language
- *   too often (e.g., prevents getting 4 Spanish countries followed by 4 other
- *   Spanish countries) by:
- *   1) Weighting target selection by unique language first rather than raw
- *      broadcaster count (so 9 Spanish or 6 English channels don't dominate).
- *   2) Blocking languages spoken in recent rounds (in 10 Tries Mode, never
- *      repeating a spoken language across the 10 rounds; in Endless Mode,
- *       enforcing a 4-round cooldown on the same spoken language).
  */
 function generateAudioRoundQuestion() {
   const isCountryTarget = state.config.audioTarget === 'country';
   const diff = state.config.difficulty;
+
+  // Pool of broadcasters filtered by the user's Audio Language Tree or Territory Tree (+ Trap)
+  const activePool = isCountryTarget
+    ? getActiveAudioBroadcastersForCountryMode()
+    : getActiveAudioBroadcastersForLangMode();
 
   const usedKeys = new Set();
   const blockedSpokenLangs = new Set();
@@ -246,11 +272,9 @@ function generateAudioRoundQuestion() {
   if (state.config.mode === 'ten_tries') {
     state.history.forEach(h => {
       if (h && h.targetKey) usedKeys.add(h.targetKey);
-      // In 10 Tries Mode, avoid repeating the same spoken language even in Guess the Country
       if (h && h.spokenLangCode) blockedSpokenLangs.add(h.spokenLangCode);
     });
   } else {
-    // In Endless Mode, avoid repeating the same country or the same spoken language from the last 4 rounds
     const recentHistory = state.history.slice(-4);
     recentHistory.forEach(h => {
       if (h && h.targetKey) usedKeys.add(h.targetKey);
@@ -258,23 +282,21 @@ function generateAudioRoundQuestion() {
     });
   }
 
-  // First filter broadcasters by unused country/language key AND non-repeated spoken language
-  let eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
+  let eligibleBroadcasters = activePool.filter(b => {
     const key = isCountryTarget ? b.countryCode : b.langCode;
     return !usedKeys.has(key) && !blockedSpokenLangs.has(b.langCode);
   });
 
-  // Fallback if cooldown filtered everything out
   if (eligibleBroadcasters.length === 0) {
-    eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
+    eligibleBroadcasters = activePool.filter(b => {
       const key = isCountryTarget ? b.countryCode : b.langCode;
       return !usedKeys.has(key);
     });
   }
-  const poolToPick = eligibleBroadcasters.length > 0 ? eligibleBroadcasters : TV_NEWS_BROADCASTERS;
+  const poolToPick = eligibleBroadcasters.length > 0 ? eligibleBroadcasters : activePool;
 
-  // Group eligible broadcasters by langCode so multi-country languages (Spanish, English, Portuguese, Arabic, French)
-  // don't appear more frequently than single-country languages.
+  // Weight target selection by unique language first so multi-country languages
+  // don't appear overwhelmingly often.
   const byLanguageMap = new Map();
   poolToPick.forEach(b => {
     if (!byLanguageMap.has(b.langCode)) {
@@ -290,7 +312,7 @@ function generateAudioRoundQuestion() {
   if (!isCountryTarget) {
     // GUESS THE LANGUAGE IN AUDIO MODE
     const uniqueLangMap = new Map();
-    TV_NEWS_BROADCASTERS.forEach(b => {
+    activePool.forEach(b => {
       if (!uniqueLangMap.has(b.langCode)) {
         uniqueLangMap.set(b.langCode, {
           code: b.langCode,
@@ -301,6 +323,21 @@ function generateAudioRoundQuestion() {
         });
       }
     });
+    // Ensure at least 4 languages exist for distractors even if user picked a tiny single-language branch
+    if (uniqueLangMap.size < 4) {
+      TV_NEWS_BROADCASTERS.forEach(b => {
+        if (!uniqueLangMap.has(b.langCode)) {
+          uniqueLangMap.set(b.langCode, {
+            code: b.langCode,
+            name: b.langName,
+            native: b.langNative,
+            family: b.family,
+            region: b.region
+          });
+        }
+      });
+    }
+
     const allAudioLangs = Array.from(uniqueLangMap.values());
     const targetLangObj = uniqueLangMap.get(targetBroadcaster.langCode);
     const others = allAudioLangs.filter(l => l.code !== targetLangObj.code);
@@ -349,7 +386,7 @@ function generateAudioRoundQuestion() {
     // GUESS THE COUNTRY IN AUDIO MODE
     const countryLangSetMap = new Map();
     const uniqueCountries = new Map();
-    TV_NEWS_BROADCASTERS.forEach(b => {
+    activePool.forEach(b => {
       if (!countryLangSetMap.has(b.countryCode)) {
         countryLangSetMap.set(b.countryCode, new Set());
       }
@@ -359,6 +396,19 @@ function generateAudioRoundQuestion() {
       }
     });
 
+    // Ensure at least 4 countries exist for distractors
+    if (uniqueCountries.size < 4) {
+      TV_NEWS_BROADCASTERS.forEach(b => {
+        if (!countryLangSetMap.has(b.countryCode)) {
+          countryLangSetMap.set(b.countryCode, new Set());
+        }
+        countryLangSetMap.get(b.countryCode).add(b.langCode);
+        if (!uniqueCountries.has(b.countryCode)) {
+          uniqueCountries.set(b.countryCode, b);
+        }
+      });
+    }
+
     const allCountries = Array.from(uniqueCountries.values());
     const others = allCountries.filter(c => c.countryCode !== targetBroadcaster.countryCode);
     let distractors = [];
@@ -366,8 +416,6 @@ function generateAudioRoundQuestion() {
     if (diff === 'easy') {
       distractors = shuffleArray(others).slice(0, 3);
     } else if (diff === 'medium') {
-      // Medium Mode: countries from the same continent/region or language family,
-      // while avoiding filling all 4 slots with the exact same spoken language
       const sameRegionDiffLang = shuffleArray(
         others.filter(c => c.region === targetBroadcaster.region && c.langCode !== targetBroadcaster.langCode)
       );
@@ -381,7 +429,6 @@ function generateAudioRoundQuestion() {
         if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
       }
     } else {
-      // Hard Mode: prioritize countries speaking the same language (accent battle) or same language family
       const sameLanguageCountries = shuffleArray(
         others.filter(c => {
           const langSet = countryLangSetMap.get(c.countryCode);
@@ -423,51 +470,93 @@ function generateAudioRoundQuestion() {
 }
 
 /**
- * Screen & Mode Switching
+ * ============================================================================
+ * UI & VIEW MANAGEMENT (HUB, TEXT SETUP, AUDIO SETUP, GAMEPLAY, SUMMARY)
+ * ============================================================================
  */
-function showScreen(screenName) {
-  document.getElementById('modeHubScreen').classList.toggle('hidden', screenName !== 'hub');
-  document.getElementById('setupScreen').classList.toggle('hidden', screenName !== 'setup');
-  document.getElementById('audioSetupScreen').classList.toggle('hidden', screenName !== 'audio_setup');
-  document.getElementById('gameScreen').classList.toggle('hidden', screenName !== 'game');
-  document.getElementById('summaryScreen').classList.toggle('hidden', screenName !== 'summary');
+function showView(viewName) {
+  const views = ['modeHubScreen', 'setupScreen', 'audioSetupScreen', 'gameScreen', 'summaryScreen'];
+  views.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', id !== viewName);
+  });
 
+  // Show Video Toggle bar above Native Toggle bar whenever in Audio Mode
   const videoFooterBar = document.getElementById('videoToggleFooterBar');
   if (videoFooterBar) {
-    videoFooterBar.classList.toggle('hidden', state.appMode !== 'audio' || screenName === 'hub');
+    videoFooterBar.classList.toggle('hidden', state.appMode !== 'audio');
   }
 
+  // Toggle Text Card vs Audio Player Card inside gameScreen
+  const textCard = document.getElementById('textWikiCard');
+  const audioCard = document.getElementById('audioPlayerCard');
+  const gamePrefetch = document.getElementById('gamePrefetchBadge');
+  if (textCard && audioCard) {
+    textCard.classList.toggle('hidden', state.appMode !== 'text');
+    audioCard.classList.toggle('hidden', state.appMode !== 'audio');
+  }
+  if (gamePrefetch) {
+    gamePrefetch.classList.toggle('hidden', state.appMode !== 'text');
+  }
+
+  updateHeaderModeSwitcherUI();
+}
+
+function updateHeaderModeSwitcherUI() {
   const textBtn = document.getElementById('headerModeTextBtn');
   const audioBtn = document.getElementById('headerModeAudioBtn');
   const brandIcon = document.getElementById('headerBrandIcon');
 
   if (state.appMode === 'audio') {
-    textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
-    audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-sky-600 text-white shadow';
-    if (brandIcon) brandIcon.className = 'fa-solid fa-tv';
+    if (textBtn) {
+      textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
+    }
+    if (audioBtn) {
+      audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-sky-600 text-white';
+    }
+    if (brandIcon) {
+      brandIcon.className = 'fa-solid fa-tv';
+    }
   } else {
-    textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-indigo-600 text-white shadow';
-    audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
-    if (brandIcon) brandIcon.className = 'fa-brands fa-wikipedia-w';
+    if (textBtn) {
+      textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-indigo-600 text-white';
+    }
+    if (audioBtn) {
+      audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
+    }
+    if (brandIcon) {
+      brandIcon.className = 'fa-brands fa-wikipedia-w';
+    }
   }
 }
 
 function switchAppMode(targetMode) {
+  if (targetMode !== 'text' && targetMode !== 'audio') return;
   stopAudioPlayback();
   state.appMode = targetMode;
   state.status = 'setup';
+  updateConfigCardsUI();
+
   if (targetMode === 'audio') {
     initYouTubeApi();
-    showScreen('audio_setup');
+    showView('audioSetupScreen');
   } else {
-    showScreen('setup');
+    showView('setupScreen');
     ensurePrefetchQueue();
   }
-  updateConfigCardsUI();
 }
 
-function isEndlessMode() {
-  return state.config.mode === 'endless_3' || state.config.mode === 'endless_1';
+function updateConfigCardsUI() {
+  document.querySelectorAll('.config-card').forEach(card => {
+    const group = card.getAttribute('data-config-group');
+    const val = card.getAttribute('data-config-value');
+    if (state.config[group] === val) {
+      card.classList.add('active');
+    } else {
+      card.classList.remove('active');
+    }
+  });
+  updateCategoryCountsAndBadges();
 }
 
 function updateCategoryCountsAndBadges() {
@@ -496,587 +585,733 @@ function updateCategoryCountsAndBadges() {
   if (tvCountBadge && typeof TV_NEWS_BROADCASTERS !== 'undefined') {
     tvCountBadge.textContent = `${TV_NEWS_BROADCASTERS.length} TV Channels`;
   }
-}
 
-function updateConfigCardsUI() {
-  document.querySelectorAll('.config-card').forEach(card => {
-    const group = card.getAttribute('data-config-group');
-    const val = card.getAttribute('data-config-value');
-    const isActive = state.config[group] === val;
-    card.classList.toggle('active', isActive);
-  });
-  updateCategoryCountsAndBadges();
-}
-
-function updateHudUI() {
-  const dict = t();
-  document.getElementById('hudRoundLabel').textContent = dict.hudRoundLabel;
-  document.getElementById('hudScoreLabel').textContent = dict.hudScoreLabel;
-  document.getElementById('hudStreakLabel').textContent = dict.hudStreakLabel;
-  document.getElementById('hudLivesLabel').textContent = dict.hudLivesLabel;
-  document.getElementById('hudSettingsBtnText').textContent = dict.hudSettingsBtnText;
-
-  document.getElementById('hudRoundValue').textContent = state.config.mode === 'ten_tries'
-    ? `${state.round} / ${state.maxRounds}`
-    : `${state.round}`;
-  document.getElementById('hudScoreValue').textContent = `${state.score}`;
-  document.getElementById('hudStreakValue').textContent = `${state.streak} 🔥`;
-
-  const livesBadge = document.getElementById('hudLivesBadge');
-  if (isEndlessMode()) {
-    livesBadge.classList.remove('hidden');
-    const maxHearts = state.config.mode === 'endless_1' ? 1 : 3;
-    let heartsHtml = '';
-    for (let i = 0; i < maxHearts; i++) {
-      heartsHtml += i < state.lives ? '❤️' : '🖤';
-    }
-    document.getElementById('hudLivesValue').textContent = heartsHtml;
-  } else {
-    livesBadge.classList.add('hidden');
-  }
-
-  const gamePrefetchBadge = document.getElementById('gamePrefetchBadge');
-  if (gamePrefetchBadge) {
-    gamePrefetchBadge.classList.toggle('hidden', state.appMode === 'audio');
-  }
-}
-
-function renderOptionButtons() {
-  if (!state.currentQuestion) return;
-  const grid = document.getElementById('optionsGrid');
-  const isRevealed = state.status === 'revealed';
-  const showNativeNow = state.config.alwaysShowNative || isRevealed;
-  const targetCode = state.currentQuestion.targetLang.code;
-
-  grid.innerHTML = state.currentQuestion.options.map((opt, idx) => {
-    const primaryLabel = opt.label ? opt.label : getLocalizedLanguageName(opt);
-    let btnClasses = 'option-btn w-full rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 overflow-hidden ';
-    let badgeClasses = 'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ';
-    let statusIcon = '';
-
-    if (!isRevealed) {
-      btnClasses += 'bg-slate-900/90 border-slate-800 hover:border-indigo-500/60 text-white';
-      badgeClasses += 'bg-slate-800 text-slate-300 border border-slate-700';
-    } else {
-      const isSelected = state.selectedCode === opt.code;
-      const isCorrect = opt.code === targetCode;
-
-      if (isSelected && isCorrect) {
-        btnClasses += 'bg-emerald-600/25 border-emerald-500 text-white shadow-lg shadow-emerald-600/20';
-        badgeClasses += 'bg-emerald-500 text-slate-950';
-        statusIcon = '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>';
-      } else if (isSelected && !isCorrect) {
-        btnClasses += 'bg-rose-600/25 border-rose-500 text-white shadow-lg shadow-rose-600/20';
-        badgeClasses += 'bg-rose-500 text-white';
-        statusIcon = '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>';
-      } else if (!isSelected && isCorrect) {
-        btnClasses += 'bg-sky-600/25 border-sky-400 text-white shadow-lg shadow-sky-600/20';
-        badgeClasses += 'bg-sky-400 text-slate-950';
-        statusIcon = '<i class="fa-solid fa-circle-check text-sky-300 text-base"></i>';
-      } else {
-        btnClasses += 'bg-slate-950/50 border-slate-800/60 text-slate-500 opacity-65';
-        badgeClasses += 'bg-slate-900 text-slate-500 border border-slate-800';
-      }
-    }
-
-    return `
-      <button
-        type="button"
-        data-lang-code="${opt.code}"
-        ${isRevealed ? 'disabled' : ''}
-        class="${btnClasses}"
-      >
-        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-          <span class="${badgeClasses}">${idx + 1}</span>
-          <div class="min-w-0 flex-1 leading-tight">
-            <div class="option-lang-name font-bold truncate">${escapeHtml(primaryLabel)}</div>
-            <div class="${showNativeNow ? 'visible opacity-100' : 'invisible opacity-0'} option-native-name text-slate-300/90 font-medium truncate leading-tight transition-opacity">
-              ${escapeHtml(opt.native)}
-            </div>
-          </div>
-        </div>
-        <div class="shrink-0 w-4 flex items-center justify-center">${statusIcon}</div>
-      </button>
-    `;
-  }).join('');
-
-  if (!isRevealed) {
-    grid.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const code = btn.getAttribute('data-lang-code');
-        if (code) handleOptionSelect(code);
-      });
-    });
-  }
-}
-
-function formatDisplayParagraph(text) {
-  if (!text) return '';
-  if (text.length <= 600) return text;
-  return text.slice(0, 600).trimEnd() + '...';
-}
-
-function displayQuestionOnScreen(questionData) {
-  const dict = t();
-  document.getElementById('textWikiCard').classList.remove('hidden');
-  document.getElementById('audioPlayerCard').classList.add('hidden');
-  document.getElementById('choosePromptText').textContent = dict.choosePromptText;
-
-  const activeDiff = state.config.difficulty;
-  const rawParagraph = (activeDiff === 'hard' && questionData.hardParagraph)
-    ? questionData.hardParagraph
-    : questionData.paragraph;
-  const formattedParagraph = formatDisplayParagraph(rawParagraph);
-
-  const optionsByDifficulty = questionData.optionsByDifficulty || buildAllDifficultyOptions(questionData.targetLang);
-  const activeOptions = optionsByDifficulty[activeDiff] || buildFourOptions(questionData.targetLang, activeDiff);
-
-  state.currentQuestion = {
-    ...questionData,
-    isAudio: false,
-    optionsByDifficulty,
-    paragraph: formattedParagraph,
-    options: activeOptions
-  };
-  state.selectedCode = null;
-  state.status = 'playing';
-
-  document.getElementById('scannerLoadingState').classList.add('hidden');
-  document.getElementById('snippetContentArea').classList.remove('hidden');
-  document.getElementById('revealCardContainer').classList.add('hidden');
-
-  const paragraphEl = document.getElementById('wikiParagraphText');
-  paragraphEl.textContent = state.currentQuestion.paragraph;
-  document.getElementById('charCountBadge').textContent = dict.charsUnit(state.currentQuestion.paragraph.length);
-
-  updateHudUI();
-  renderOptionButtons();
-}
-
-function displayAudioQuestionOnScreen(audioQuestion) {
-  const dict = t();
-  document.getElementById('textWikiCard').classList.add('hidden');
-  document.getElementById('audioPlayerCard').classList.remove('hidden');
-  document.getElementById('revealCardContainer').classList.add('hidden');
-
-  document.getElementById('choosePromptText').textContent =
-    state.config.audioTarget === 'country' ? dict.chooseAudioCountryPrompt : dict.chooseAudioLangPrompt;
-
-  state.currentQuestion = audioQuestion;
-  state.selectedCode = null;
-  state.status = 'playing';
-
-  updateHudUI();
-  renderOptionButtons();
-  syncVideoViewportVisibility();
-  loadBroadcasterIntoPlayer(audioQuestion.broadcaster);
-}
-
-async function loadNextRound() {
-  state.status = 'loading';
-  document.getElementById('revealCardContainer').classList.add('hidden');
-  document.getElementById('optionsGrid').innerHTML = '';
-  updateHudUI();
-
-  if (state.appMode === 'audio') {
-    const audioQ = generateAudioRoundQuestion();
-    displayAudioQuestionOnScreen(audioQ);
-    return;
-  }
-
-  const usedInTenTries = state.config.mode === 'ten_tries'
-    ? new Set(state.history.map(h => h.targetLang.code))
-    : null;
-
-  while (state.prefetchQueue.length > 0) {
-    const nextPreloaded = state.prefetchQueue.shift();
-    if (usedInTenTries && usedInTenTries.has(nextPreloaded.targetLang.code)) {
-      continue;
-    }
-    updatePrefetchBadgesUI();
-    displayQuestionOnScreen(nextPreloaded);
-    ensurePrefetchQueue();
-    return;
-  }
-
-  document.getElementById('snippetContentArea').classList.add('hidden');
-  document.getElementById('scannerLoadingState').classList.remove('hidden');
-
-  const liveRound = await generateValidArticleRound();
-  displayQuestionOnScreen(liveRound);
-  ensurePrefetchQueue();
-}
-
-function startNewGame() {
-  state.round = 1;
-  state.score = 0;
-  state.streak = 0;
-  state.bestStreak = 0;
-  state.lives = state.config.mode === 'endless_1' ? 1 : 3;
-  state.history = [];
-  showScreen('game');
-  loadNextRound();
+  updateAudioTreeCountsAndBadges();
 }
 
 /**
- * Updates the Reveal Card for Audio Mode with the live YouTube Broadcast Title,
- * Broadcaster Name, Country Flag, and direct "Open on YouTube" link.
+ * Synchronizes parent/child tree checkboxes, counts, and setup card badges
+ * for both the Audio Language Tree Modal and the Audio Territory Tree Modal.
  */
-function updateAudioRevealDetailsUI() {
-  if (!state.currentQuestion || !state.currentQuestion.isAudio) return;
-  const dict = t();
-  const b = state.currentQuestion.broadcaster;
-  const vidTitle = audioEngine.currentVideoTitle || `${b.broadcaster} — Live News Broadcast`;
-  const vidId = audioEngine.currentVideoId;
-  const ytUrl = vidId
-    ? `https://www.youtube.com/watch?v=${vidId}&t=${audioEngine.currentStartSeconds}s`
-    : `https://www.youtube.com/channel/${b.channelId}`;
+function updateAudioTreeCountsAndBadges() {
+  if (typeof TV_NEWS_BROADCASTERS === 'undefined') return;
 
-  document.getElementById('revealArticleTitle').textContent = vidTitle;
-  document.getElementById('revealLangDetails').textContent = dict.revealAudioMeta(
-    b.broadcaster,
-    getLocalizedCountryName(b),
-    b.flag,
-    getLocalizedLanguageName(b),
-    b.langNative
-  );
-
-  const linkEl = document.getElementById('revealWikiLink');
-  linkEl.href = ytUrl;
-  document.getElementById('revealExternalLinkIcon').className = 'fa-brands fa-youtube text-rose-400';
-  document.getElementById('revealReadArticleText').textContent = dict.revealWatchYoutubeText;
-}
-
-function updateRevealCardUI() {
-  if (!state.currentQuestion || state.status !== 'revealed') return;
-  const dict = t();
-  const target = state.currentQuestion.targetLang;
-  const isCorrect = state.selectedCode === target.code;
-
-  const banner = document.getElementById('revealStatusBanner');
-  if (isCorrect) {
-    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-    banner.innerHTML = `<i class="fa-solid fa-check"></i> <span>${escapeHtml(dict.revealCorrect)}</span>`;
-  } else {
-    banner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
-    banner.innerHTML = `<i class="fa-solid fa-xmark"></i> <span>${escapeHtml(dict.revealWrong)}</span>`;
-  }
-
-  if (state.currentQuestion.isAudio) {
-    updateAudioRevealDetailsUI();
-  } else {
-    document.getElementById('revealArticleTitle').textContent = state.currentQuestion.articleTitle;
-    document.getElementById('revealLangDetails').textContent = dict.revealLangMeta(
-      getLocalizedLanguageName(target),
-      target.native,
-      target.script,
-      target.family
+  // 1. Audio Language Tree Counts & Checkboxes
+  const langLeafCounts = {};
+  ALL_AUDIO_LANG_LEAVES.forEach(leaf => {
+    const uniqueLangs = new Set(
+      TV_NEWS_BROADCASTERS.filter(b => b.langCat === leaf).map(b => b.langCode)
     );
-
-    const wikiLink = document.getElementById('revealWikiLink');
-    wikiLink.href = state.currentQuestion.articleUrl;
-    document.getElementById('revealExternalLinkIcon').className = 'fa-brands fa-wikipedia-w';
-    document.getElementById('revealReadArticleText').textContent = dict.revealReadArticleText;
-  }
-
-  const isTenFinished = state.config.mode === 'ten_tries' && state.round >= state.maxRounds;
-  const isEndlessOver = isEndlessMode() && state.lives <= 0;
-
-  const nextText = document.getElementById('nextRoundBtnText');
-  if (isTenFinished) {
-    nextText.textContent = dict.nextBtnFinalScore;
-  } else if (isEndlessOver) {
-    nextText.textContent = dict.nextBtnGameOver;
-  } else {
-    nextText.textContent = dict.nextBtnTryAgain;
-  }
-
-  document.getElementById('revealCardContainer').classList.remove('hidden');
-}
-
-function handleOptionSelect(chosenCode) {
-  if (state.status !== 'playing' || !state.currentQuestion) return;
-  state.status = 'revealed';
-  state.selectedCode = chosenCode;
-
-  const target = state.currentQuestion.targetLang;
-  const chosenOpt = state.currentQuestion.options.find(o => o.code === chosenCode) || target;
-  const isCorrect = chosenCode === target.code;
-
-  if (isCorrect) {
-    state.score++;
-    state.streak++;
-    if (state.streak > state.bestStreak) state.bestStreak = state.streak;
-  } else {
-    state.streak = 0;
-    if (isEndlessMode()) {
-      state.lives = Math.max(0, state.lives - 1);
-    }
-  }
-
-  if (state.currentQuestion.isAudio) {
-    syncVideoViewportVisibility();
-    const b = state.currentQuestion.broadcaster;
-    const vidId = audioEngine.currentVideoId;
-    const ytUrl = vidId
-      ? `https://www.youtube.com/watch?v=${vidId}&t=${audioEngine.currentStartSeconds}s`
-      : `https://www.youtube.com/channel/${b.channelId}`;
-
-    state.history.push({
-      round: state.round,
-      isAudio: true,
-      targetKey: state.currentQuestion.targetKey,
-      spokenLangCode: state.currentQuestion.spokenLangCode || b.langCode,
-      targetLang: target,
-      chosenLang: { code: chosenOpt.code, name: chosenOpt.label || chosenOpt.name, native: chosenOpt.native },
-      isCorrect,
-      articleTitle: audioEngine.currentVideoTitle || b.broadcaster,
-      articleUrl: ytUrl
-    });
-  } else {
-    state.history.push({
-      round: state.round,
-      isAudio: false,
-      targetLang: target,
-      chosenLang: chosenOpt,
-      isCorrect,
-      articleTitle: state.currentQuestion.articleTitle,
-      articleUrl: state.currentQuestion.articleUrl
-    });
-    ensurePrefetchQueue();
-  }
-
-  updateHudUI();
-  renderOptionButtons();
-  updateRevealCardUI();
-}
-
-function handleNextAction() {
-  if (state.status !== 'revealed') return;
-  const isTenFinished = state.config.mode === 'ten_tries' && state.round >= state.maxRounds;
-  const isEndlessOver = isEndlessMode() && state.lives <= 0;
-
-  if (isTenFinished || isEndlessOver) {
-    stopAudioPlayback();
-    renderSummaryScreen();
-  } else {
-    state.round++;
-    loadNextRound();
-  }
-}
-
-function renderSummaryScreen() {
-  state.status = 'gameover';
-  showScreen('summary');
-
-  const dict = t();
-  const totalRounds = state.history.length;
-  const accuracy = totalRounds > 0 ? Math.round((state.score / totalRounds) * 100) : 0;
-  const iconBox = document.getElementById('summaryIconBox');
-
-  if (state.config.mode === 'ten_tries') {
-    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
-    iconBox.innerHTML = '<i class="fa-solid fa-trophy"></i>';
-    document.getElementById('summaryModeBadge').textContent = dict.sumTenTriesBadge;
-    document.getElementById('summaryTitle').textContent = dict.sumTenTriesTitle(state.score, state.maxRounds);
-  } else if (state.config.mode === 'endless_1') {
-    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-amber-500/20 text-amber-300 border border-amber-500/30';
-    iconBox.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i>';
-    document.getElementById('summaryModeBadge').textContent = dict.sumEndless1Badge;
-    document.getElementById('summaryTitle').textContent = dict.sumEndless1Title(state.score);
-  } else {
-    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-rose-500/20 text-rose-300 border border-rose-500/30';
-    iconBox.innerHTML = '<i class="fa-solid fa-heart-crack"></i>';
-    document.getElementById('summaryModeBadge').textContent = dict.sumEndless3Badge;
-    document.getElementById('summaryTitle').textContent = dict.sumEndless3Title(state.score);
-  }
-
-  document.getElementById('sumFinalScore').textContent = state.config.mode === 'ten_tries'
-    ? `${state.score}/${state.maxRounds}`
-    : `${state.score}`;
-  document.getElementById('sumAccuracy').textContent = `${accuracy}%`;
-  document.getElementById('sumRounds').textContent = `${totalRounds}`;
-  document.getElementById('sumBestStreak').textContent = `${state.bestStreak}`;
-
-  document.getElementById('summaryHistoryList').innerHTML = state.history.map(item => {
-    const badgeCls = item.isCorrect
-      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-      : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-    const icon = item.isCorrect ? 'fa-check' : 'fa-xmark';
-    const targetName = item.isAudio ? item.targetLang.name : getLocalizedLanguageName(item.targetLang);
-    const chosenName = item.isAudio ? item.chosenLang.name : getLocalizedLanguageName(item.chosenLang);
-    const linkIcon = item.isAudio ? 'fa-brands fa-youtube text-rose-400' : 'fa-brands fa-wikipedia-w';
-
-    return `
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs sm:text-sm">
-        <div class="flex items-center gap-3">
-          <span class="w-7 h-7 rounded-lg border flex items-center justify-center font-bold shrink-0 ${badgeCls}">
-            <i class="fa-solid ${icon}"></i>
-          </span>
-          <div>
-            <div class="font-bold text-white">
-              ${escapeHtml(dict.historyRound(item.round))}: ${escapeHtml(targetName)}
-              <span class="text-slate-400 font-normal">(${escapeHtml(item.targetLang.native)})</span>
-            </div>
-            <div class="text-xs text-slate-400">
-              ${item.isCorrect
-                ? escapeHtml(dict.historyGuessedCorrectly)
-                : `${escapeHtml(dict.historyYourGuess)} <span class="text-rose-300 font-medium">${escapeHtml(chosenName)}</span>`
-              }
-            </div>
-          </div>
-        </div>
-        <a href="${item.articleUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0">
-          <i class="${linkIcon}"></i>
-          <span class="truncate max-w-[180px]">${escapeHtml(item.articleTitle)}</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-        </a>
-      </div>
-    `;
-  }).join('');
-}
-
-function setUiLanguage(langCode) {
-  if (!I18N[langCode]) langCode = 'en';
-  state.config.uiLang = langCode;
-  document.documentElement.lang = langCode;
-
-  document.querySelectorAll('.ui-lang-btn').forEach(btn => {
-    const active = btn.getAttribute('data-ui-lang') === langCode;
-    btn.className = active
-      ? 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
-      : 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
+    langLeafCounts[leaf] = uniqueLangs.size;
+    const el = document.getElementById(`langLeafCount_${leaf}`);
+    if (el) el.textContent = `${uniqueLangs.size}`;
   });
 
+  const euroLangTotal = (langLeafCounts.euro_romance || 0) + (langLeafCounts.euro_germanic || 0) +
+    (langLeafCounts.euro_slavic || 0) + (langLeafCounts.euro_others || 0);
+  const asiaLangTotal = (langLeafCounts.asia_east || 0) + (langLeafCounts.asia_se || 0) + (langLeafCounts.asia_south || 0);
+  const afwaLangTotal = langLeafCounts.afr_west_asia_other || 0;
+
+  const pEuro = document.getElementById('langParentCountEuro');
+  const pAsia = document.getElementById('langParentCountAsia');
+  const pAfwa = document.getElementById('langParentCountAfwa');
+  if (pEuro) pEuro.textContent = euroLangTotal;
+  if (pAsia) pAsia.textContent = asiaLangTotal;
+  if (pAfwa) pAfwa.textContent = afwaLangTotal;
+
+  document.querySelectorAll('.audio-lang-leaf').forEach(cb => {
+    cb.checked = state.config.audioLangCategories.has(cb.value);
+  });
+  document.querySelectorAll('.audio-tree-parent').forEach(parentCb => {
+    const parentKey = parentCb.getAttribute('data-parent');
+    const children = Array.from(document.querySelectorAll(`.audio-lang-leaf[data-parent="${parentKey}"]`));
+    const checkedCount = children.filter(c => c.checked).length;
+    parentCb.checked = checkedCount === children.length && children.length > 0;
+    parentCb.indeterminate = checkedCount > 0 && checkedCount < children.length;
+  });
+
+  const activeLangPool = getActiveAudioBroadcastersForLangMode();
+  const activeUniqueLangCount = new Set(activeLangPool.map(b => b.langCode)).size;
+  const langTreeBadge = document.getElementById('audioLangTreeBadge');
+  if (langTreeBadge) {
+    langTreeBadge.textContent = `${state.config.audioLangCategories.size} groups • ${activeUniqueLangCount} langs`;
+  }
+
+  // 2. Audio Territory Tree Counts & Checkboxes
+  const terrLeafCounts = {};
+  ALL_AUDIO_TERR_LEAVES.forEach(leaf => {
+    const uniqueCountries = new Set(
+      TV_NEWS_BROADCASTERS.filter(b => b.territory === leaf).map(b => b.countryCode)
+    );
+    terrLeafCounts[leaf] = uniqueCountries.size;
+    const el = document.getElementById(`terrLeafCount_${leaf}`);
+    if (el) el.textContent = `${uniqueCountries.size}`;
+  });
+
+  const tAm = document.getElementById('terrParentCountAmerica');
+  const tEu = document.getElementById('terrParentCountEurope');
+  const tAo = document.getElementById('terrParentCountAsiaOce');
+  const tAf = document.getElementById('terrParentCountAfwa');
+  if (tAm) tAm.textContent = (terrLeafCounts.am_north || 0) + (terrLeafCounts.am_carib_central || 0) + (terrLeafCounts.am_south || 0);
+  if (tEu) tEu.textContent = (terrLeafCounts.eu_west || 0) + (terrLeafCounts.eu_north || 0) + (terrLeafCounts.eu_east_balkan || 0);
+  if (tAo) tAo.textContent = (terrLeafCounts.ao_east_asia || 0) + (terrLeafCounts.ao_se_asia || 0) + (terrLeafCounts.ao_south_asia || 0) + (terrLeafCounts.ao_oceania || 0);
+  if (tAf) tAf.textContent = (terrLeafCounts.afwa_subsaharan || 0) + (terrLeafCounts.afwa_mena_caucasus || 0);
+
+  document.querySelectorAll('.audio-terr-leaf').forEach(cb => {
+    cb.checked = state.config.audioTerritories.has(cb.value);
+  });
+  document.querySelectorAll('.audio-terr-parent').forEach(parentCb => {
+    const parentKey = parentCb.getAttribute('data-parent');
+    const children = Array.from(document.querySelectorAll(`.audio-terr-leaf[data-parent="${parentKey}"]`));
+    const checkedCount = children.filter(c => c.checked).length;
+    parentCb.checked = checkedCount === children.length && children.length > 0;
+    parentCb.indeterminate = checkedCount > 0 && checkedCount < children.length;
+  });
+
+  const trapCheckbox = document.getElementById('crossContinentTrapToggle');
+  if (trapCheckbox) {
+    trapCheckbox.checked = Boolean(state.config.crossContinentTrap);
+  }
+
+  const activeTerrPool = getActiveAudioBroadcastersForCountryMode();
+  const activeUniqueCountryCount = new Set(activeTerrPool.map(b => b.countryCode)).size;
+  const terrTreeBadge = document.getElementById('audioTerrTreeBadge');
+  if (terrTreeBadge) {
+    terrTreeBadge.textContent = `${activeUniqueCountryCount} countries${state.config.crossContinentTrap ? ' • Trap' : ''}`;
+  }
+}
+
+function updateVideoToggleUI() {
   const dict = t();
-  const mapIds = [
+  const checkbox = document.getElementById('showBlurredVideoToggle');
+  const labelText = document.getElementById('videoToggleStateText');
+  const switchTrack = document.getElementById('videoToggleSwitchTrack');
+  const mode = state.config.videoDisplayMode || 'off';
+
+  if (checkbox) {
+    checkbox.checked = mode !== 'off';
+  }
+  if (labelText) {
+    if (mode === 'clear') {
+      labelText.textContent = dict.videoStateClear || 'Remove Blur 🔓';
+      labelText.className = 'text-xs font-bold text-amber-400';
+    } else if (mode === 'blurred') {
+      labelText.textContent = dict.videoStateOn;
+      labelText.className = 'text-xs font-semibold text-sky-400';
+    } else {
+      labelText.textContent = dict.videoStateOff;
+      labelText.className = 'text-xs font-semibold text-slate-400';
+    }
+  }
+  if (switchTrack) {
+    if (mode === 'clear') {
+      switchTrack.classList.remove('peer-checked:bg-sky-600');
+      switchTrack.classList.add('peer-checked:bg-amber-500');
+    } else {
+      switchTrack.classList.remove('peer-checked:bg-amber-500');
+      switchTrack.classList.add('peer-checked:bg-sky-600');
+    }
+  }
+}
+
+function applyTranslations() {
+  const dict = t();
+  const textIds = [
     'headerTitle', 'headerSubtitle', 'modeSwitchText', 'modeSwitchAudio',
     'hubHeading', 'hubSubheading', 'hubTextTitle', 'hubTextBadge', 'hubTextDesc',
     'hubAudioTitle', 'hubAudioBadge', 'hubAudioDesc',
     'setupHeading', 'setupSubheading', 'audioSetupHeading', 'audioSetupSubheading',
-    'labelAudioTarget', 'targetLangTitle', 'targetLangDesc', 'targetCountryTitle', 'targetCountryDesc',
     'labelGameMode', 'modeTenTitle', 'modeTenDesc', 'modeEndless3Title', 'modeEndless3Desc',
     'modeEndless1Title', 'modeEndless1Desc', 'labelLangPool', 'poolStableTitle', 'poolStableDesc',
     'poolExpTitle', 'poolExpDesc', 'poolCustomTitle', 'poolCustomDesc',
+    'labelAudioTarget', 'targetLangTitle', 'targetLangDesc', 'targetCountryTitle', 'targetCountryDesc',
     'labelDifficulty', 'diffEasyTitle', 'diffEasyDesc', 'diffMedTitle', 'diffMedDesc',
-    'diffHardTitle', 'diffHardDesc', 'startGameBtnText', 'snippetHeaderBadge', 'audioHeaderBadge',
-    'audioWaveHint', 'scannerStatusTitle', 'scannerStatusSub', 'keyboardHintText',
-    'sumScoreLabel', 'sumAccLabel', 'sumRoundsLabel', 'sumStreakLabel', 'sumHistoryHeading',
-    'sumChangeSettingsText', 'sumPlayAgainText', 'videoToggleTitle', 'videoToggleSub',
-    'nativeToggleTitle', 'nativeToggleSub',
+    'diffHardTitle', 'diffHardDesc', 'startGameBtnText', 'startAudioGameBtnText',
+    'hudRoundLabel', 'hudScoreLabel', 'hudStreakLabel', 'hudLivesLabel', 'hudSettingsBtnText',
+    'snippetHeaderBadge', 'audioHeaderBadge', 'audioSkipBtnText', 'audioNewClipBtnText',
+    'audioWaveHint', 'scannerStatusTitle', 'scannerStatusSub',
+    'keyboardHintText', 'sumScoreLabel', 'sumAccLabel', 'sumRoundsLabel', 'sumStreakLabel',
+    'sumHistoryHeading', 'sumChangeSettingsText', 'sumPlayAgainText',
+    'videoToggleTitle', 'videoToggleSub', 'nativeToggleTitle', 'nativeToggleSub',
     'modalTitle', 'modalSubtitle', 'catEuroTitle', 'catEuroDesc', 'catAsianTitle', 'catAsianDesc',
     'catAfricanTitle', 'catAfricanDesc', 'catAustroTitle', 'catAustroDesc', 'catIndigTitle', 'catIndigDesc',
-    'categoryWarningText'
+    'categoryWarningText',
+    'audioLangModalTitle', 'audioLangModalSub', 'audioTerrModalTitle', 'audioTerrModalSub',
+    'trapToggleTitle', 'trapToggleDesc'
   ];
-  mapIds.forEach(id => {
+
+  textIds.forEach(id => {
     const el = document.getElementById(id);
-    if (el && typeof dict[id] === 'string') el.textContent = dict[id];
+    if (el && typeof dict[id] === 'string') {
+      el.textContent = dict[id];
+    }
   });
 
-  document.getElementById('audioLabelGameMode').textContent = dict.labelGameMode;
-  document.getElementById('audioModeTenTitle').textContent = dict.modeTenTitle;
-  document.getElementById('audioModeTenDesc').textContent = dict.modeTenDesc;
-  document.getElementById('audioModeEndless3Title').textContent = dict.modeEndless3Title;
-  document.getElementById('audioModeEndless3Desc').textContent = dict.modeEndless3Desc;
-  document.getElementById('audioModeEndless1Title').textContent = dict.modeEndless1Title;
-  document.getElementById('audioModeEndless1Desc').textContent = dict.modeEndless1Desc;
-  document.getElementById('audioLabelDifficulty').textContent = dict.labelDifficulty;
-  document.getElementById('audioDiffEasyTitle').textContent = dict.diffEasyTitle;
-  document.getElementById('audioDiffEasyDesc').textContent = dict.diffEasyDesc;
-  document.getElementById('audioDiffMedTitle').textContent = dict.diffMedTitle;
-  document.getElementById('audioDiffMedDesc').textContent = dict.diffMedDesc;
-  document.getElementById('audioDiffHardTitle').textContent = dict.diffHardTitle;
-  document.getElementById('audioDiffHardDesc').textContent = dict.diffHardDesc;
-  document.getElementById('startAudioGameBtnText').textContent = dict.startGameBtnText;
-  document.getElementById('audioSkipBtnText').textContent = dict.audioSkipBtn;
-  const newClipBtnTextEl = document.getElementById('audioNewClipBtnText');
-  if (newClipBtnTextEl) newClipBtnTextEl.textContent = dict.audioNewClipBtn;
-  document.getElementById('audioBlurredBadgeText').textContent = dict.audioBlurredBadge;
+  // Duplicate Audio Setup labels
+  const audioModeLabel = document.getElementById('audioLabelGameMode');
+  const audioDiffLabel = document.getElementById('audioLabelDifficulty');
+  if (audioModeLabel) audioModeLabel.textContent = dict.labelGameMode;
+  if (audioDiffLabel) audioDiffLabel.textContent = dict.labelDifficulty;
+  const audioModeMap = {
+    audioModeTenTitle: 'modeTenTitle',
+    audioModeTenDesc: 'modeTenDesc',
+    audioModeEndless3Title: 'modeEndless3Title',
+    audioModeEndless3Desc: 'modeEndless3Desc',
+    audioModeEndless1Title: 'modeEndless1Title',
+    audioModeEndless1Desc: 'modeEndless1Desc',
+    audioDiffEasyTitle: 'diffEasyTitle',
+    audioDiffEasyDesc: 'diffEasyDesc',
+    audioDiffMedTitle: 'diffMedTitle',
+    audioDiffMedDesc: 'diffMedDesc',
+    audioDiffHardTitle: 'diffHardTitle',
+    audioDiffHardDesc: 'diffHardDesc',
+    audioBlurredBadgeText: 'audioBlurredBadge'
+  };
+  Object.entries(audioModeMap).forEach(([elId, dictKey]) => {
+    const el = document.getElementById(elId);
+    if (el && dict[dictKey]) el.textContent = dict[dictKey];
+  });
+
+  // Prompt text depends on appMode & audioTarget
+  const promptEl = document.getElementById('choosePromptText');
+  if (promptEl) {
+    if (state.appMode === 'audio') {
+      promptEl.textContent = state.config.audioTarget === 'country'
+        ? dict.chooseAudioCountryPrompt
+        : dict.chooseAudioLangPrompt;
+    } else {
+      promptEl.textContent = dict.choosePromptText;
+    }
+  }
 
   document.getElementById('selectAllCategoriesBtn').textContent = dict.selectAllText;
   document.getElementById('resetCategoriesBtn').textContent = dict.resetText;
   document.getElementById('applyCustomModalBtn').textContent = dict.doneText;
 
+  document.getElementById('selectAllAudioLangBtn').textContent = dict.selectAllText;
+  document.getElementById('resetAudioLangBtn').textContent = dict.resetText;
+  document.getElementById('applyAudioLangModalBtn').textContent = dict.doneText;
+  document.getElementById('selectAllAudioTerrBtn').textContent = dict.selectAllText;
+  document.getElementById('resetAudioTerrBtn').textContent = dict.resetText;
+  document.getElementById('applyAudioTerrModalBtn').textContent = dict.doneText;
+
   updateVideoToggleUI();
-  updateNativeToggleUI();
-  updateConfigCardsUI();
+  document.getElementById('nativeToggleStateText').textContent = state.config.alwaysShowNative
+    ? dict.nativeStateOn
+    : dict.nativeStateOff;
+
+  document.querySelectorAll('.ui-lang-btn').forEach(btn => {
+    const isSelected = btn.getAttribute('data-ui-lang') === state.config.uiLang;
+    btn.className = isSelected
+      ? 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
+      : 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
+  });
+
+  updateCategoryCountsAndBadges();
   updatePrefetchBadgesUI();
   updateHudUI();
   updateAudioControlsUI();
 
-  if (state.currentQuestion) {
-    if (!state.currentQuestion.isAudio) {
-      document.getElementById('charCountBadge').textContent = dict.charsUnit(state.currentQuestion.paragraph.length);
-      document.getElementById('choosePromptText').textContent = dict.choosePromptText;
-    } else {
-      document.getElementById('choosePromptText').textContent =
-        state.config.audioTarget === 'country' ? dict.chooseAudioCountryPrompt : dict.chooseAudioLangPrompt;
-      state.currentQuestion.options.forEach(opt => {
-        if (opt.rawCountry) {
-          opt.label = `${opt.rawCountry.flag} ${getLocalizedCountryName(opt.rawCountry)}`;
-        }
-      });
+  if (state.status === 'playing' || state.status === 'revealed') {
+    if (state.currentQuestion) {
+      if (state.currentQuestion.isAudio) {
+        renderAudioOptionsGrid(state.status === 'revealed');
+        if (state.status === 'revealed') updateAudioRevealDetailsUI();
+      } else {
+        renderTextOptionsGrid(state.status === 'revealed');
+        if (state.status === 'revealed') renderTextRevealCard();
+      }
     }
-    renderOptionButtons();
-    if (state.status === 'revealed') updateRevealCardUI();
-  }
-  if (state.status === 'gameover') {
+  } else if (state.status === 'gameover') {
     renderSummaryScreen();
   }
 }
 
-/**
- * Updates the Video Display Toggle UI for all 3 states:
- * - 'off': Audio Only
- * - 'blurred': Blurred Video
- * - 'clear': Remove Blur (Secret 3rd option unlocked by 6 fast clicks)
- */
-function updateVideoToggleUI() {
-  const dict = t();
-  const labelEl = document.getElementById('videoToggleStateText');
-  const checkboxEl = document.getElementById('showBlurredVideoToggle');
-  const pillEl = document.getElementById('videoToggleSwitchTrack');
-  if (!labelEl) return;
+function updateHudUI() {
+  document.getElementById('hudRoundValue').textContent =
+    state.config.mode === 'ten_tries' ? `${state.round} / ${state.maxRounds}` : `${state.round}`;
+  document.getElementById('hudScoreValue').textContent = state.score;
+  document.getElementById('hudStreakValue').textContent = `${state.streak} 🔥`;
 
-  const mode = state.config.videoDisplayMode || 'off';
-  if (checkboxEl) {
-    checkboxEl.checked = mode !== 'off';
-  }
-
-  if (mode === 'clear') {
-    labelEl.textContent = dict.videoStateClear || 'Remove Blur 🔓';
-    labelEl.className = 'text-xs font-extrabold text-emerald-400';
-    if (pillEl) {
-      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-emerald-500 border border-emerald-400/60";
-    }
-  } else if (mode === 'blurred') {
-    labelEl.textContent = dict.videoStateOn;
-    labelEl.className = 'text-xs font-bold text-sky-400';
-    if (pillEl) {
-      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700";
-    }
+  const livesBadge = document.getElementById('hudLivesBadge');
+  if (state.config.mode === 'ten_tries') {
+    livesBadge.classList.add('hidden');
   } else {
-    labelEl.textContent = dict.videoStateOff;
-    labelEl.className = 'text-xs font-semibold text-slate-400';
-    if (pillEl) {
-      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700";
-    }
+    livesBadge.classList.remove('hidden');
+    const hearts = '❤️'.repeat(Math.max(0, state.lives)) + '🖤'.repeat(Math.max(0, state.maxLives - state.lives));
+    document.getElementById('hudLivesValue').textContent = hearts;
   }
-
-  syncVideoViewportVisibility();
 }
 
-function updateNativeToggleUI() {
-  const dict = t();
-  const labelEl = document.getElementById('nativeToggleStateText');
-  labelEl.textContent = state.config.alwaysShowNative ? dict.nativeStateOn : dict.nativeStateOff;
-  labelEl.className = state.config.alwaysShowNative
-    ? 'text-xs font-bold text-indigo-400'
-    : 'text-xs font-semibold text-slate-400';
+function startNewGame() {
+  state.score = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.round = 1;
+  state.history = [];
+  state.status = 'playing';
 
-  if (state.currentQuestion) {
-    renderOptionButtons();
+  if (state.config.mode === 'ten_tries') {
+    state.maxRounds = 10;
+    state.lives = 0;
+    state.maxLives = 0;
+  } else if (state.config.mode === 'endless_3') {
+    state.maxLives = 3;
+    state.lives = 3;
+  } else {
+    state.maxLives = 1;
+    state.lives = 1;
   }
+
+  applyTranslations();
+  updateHudUI();
+  showView('gameScreen');
+
+  if (state.appMode === 'audio') {
+    loadNextAudioRound();
+  } else {
+    loadNextTextRound();
+  }
+}
+
+/**
+ * ============================================================================
+ * TEXT MODE ROUND FLOW (EXISTING WIKIPEDIA GAME)
+ * ============================================================================
+ */
+async function loadNextTextRound() {
+  state.status = 'playing';
+  state.currentQuestion = null;
+
+  document.getElementById('revealCardContainer').classList.add('hidden');
+  document.getElementById('snippetContentArea').classList.add('hidden');
+  document.getElementById('scannerLoadingState').classList.remove('hidden');
+  document.getElementById('optionsGrid').innerHTML = '';
+  document.getElementById('charCountBadge').textContent = t().charsUnit(0);
+
+  let roundData = null;
+  if (state.prefetchQueue.length > 0) {
+    roundData = state.prefetchQueue.shift();
+    ensurePrefetchQueue();
+  } else {
+    roundData = await generateValidArticleRound();
+    ensurePrefetchQueue();
+  }
+
+  state.currentQuestion = roundData;
+  const displayParagraph = (state.config.difficulty === 'hard' && roundData.hardParagraph)
+    ? roundData.hardParagraph
+    : roundData.paragraph;
+  roundData.activeParagraph = displayParagraph;
+
+  document.getElementById('scannerLoadingState').classList.add('hidden');
+  document.getElementById('snippetContentArea').classList.remove('hidden');
+  document.getElementById('wikiParagraphText').textContent = displayParagraph;
+  document.getElementById('charCountBadge').textContent = t().charsUnit(displayParagraph.length);
+
+  renderTextOptionsGrid(false);
+  updateHudUI();
+}
+
+function renderTextOptionsGrid(isRevealed) {
+  const grid = document.getElementById('optionsGrid');
+  grid.innerHTML = '';
+
+  const q = state.currentQuestion;
+  if (!q) return;
+
+  const activeOptions = (q.optionsByDifficulty && q.optionsByDifficulty[state.config.difficulty])
+    ? q.optionsByDifficulty[state.config.difficulty]
+    : q.options;
+  q.options = activeOptions;
+
+  const showNative = state.config.alwaysShowNative || isRevealed;
+
+  activeOptions.forEach((optLang, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.disabled = isRevealed;
+
+    const isTarget = optLang.code === q.targetLang.code;
+    const isChosen = q.chosenCode === optLang.code;
+
+    let styleClasses = 'option-btn w-full rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 ';
+    if (!isRevealed) {
+      styleClasses += 'bg-slate-950/80 border-slate-800 hover:border-indigo-500 hover:bg-indigo-950/30 text-white cursor-pointer';
+    } else if (isTarget) {
+      styleClasses += 'bg-emerald-950/60 border-emerald-500 text-emerald-100 shadow-lg shadow-emerald-950/50';
+    } else if (isChosen && !isTarget) {
+      styleClasses += 'bg-rose-950/60 border-rose-500 text-rose-100';
+    } else {
+      styleClasses += 'bg-slate-950/40 border-slate-800/60 text-slate-500 opacity-60';
+    }
+
+    btn.className = styleClasses;
+    const translatedName = getLocalizedLanguageName(optLang);
+
+    btn.innerHTML = `
+      <div class="min-w-0 flex-1 flex flex-col justify-center">
+        <div class="option-lang-name font-bold leading-tight truncate">${escapeHtml(translatedName)}</div>
+        <div class="option-native-name leading-tight truncate mt-0.5 ${showNative ? 'text-slate-400' : 'invisible select-none'}">${escapeHtml(optLang.native)}</div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        ${isRevealed && isTarget ? '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>' : ''}
+        ${isRevealed && isChosen && !isTarget ? '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>' : ''}
+        <span class="hidden sm:inline-flex w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 items-center justify-center text-[11px] font-mono text-slate-400">${idx + 1}</span>
+      </div>
+    `;
+
+    if (!isRevealed) {
+      btn.addEventListener('click', () => handleGuessSelection(optLang.code));
+    }
+
+    grid.appendChild(btn);
+  });
+}
+
+function renderTextRevealCard() {
+  const dict = t();
+  const q = state.currentQuestion;
+  const revealCard = document.getElementById('revealCardContainer');
+  const statusBanner = document.getElementById('revealStatusBanner');
+  const titleEl = document.getElementById('revealArticleTitle');
+  const detailsEl = document.getElementById('revealLangDetails');
+  const linkEl = document.getElementById('revealWikiLink');
+  const linkIcon = document.getElementById('revealExternalLinkIcon');
+  const linkText = document.getElementById('revealReadArticleText');
+  const nextBtnText = document.getElementById('nextRoundBtnText');
+
+  revealCard.classList.remove('hidden');
+
+  if (q.isCorrect) {
+    revealCard.className = 'reveal-card bg-slate-900/95 border border-emerald-500/50 rounded-xl sm:rounded-2xl shadow-2xl';
+    statusBanner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300';
+    statusBanner.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(dict.revealCorrect)}`;
+  } else {
+    revealCard.className = 'reveal-card bg-slate-900/95 border border-rose-500/50 rounded-xl sm:rounded-2xl shadow-2xl';
+    statusBanner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300';
+    statusBanner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${escapeHtml(dict.revealWrong)}`;
+  }
+
+  const translatedLangName = getLocalizedLanguageName(q.targetLang);
+  titleEl.textContent = q.articleTitle;
+  detailsEl.textContent = dict.revealLangMeta(translatedLangName, q.targetLang.native, q.targetLang.script, q.targetLang.family);
+  linkEl.href = q.articleUrl;
+  if (linkIcon) linkIcon.className = 'fa-brands fa-wikipedia-w';
+  if (linkText) linkText.textContent = dict.revealReadArticleText;
+
+  if (state.config.mode === 'ten_tries' && state.round >= state.maxRounds) {
+    nextBtnText.textContent = dict.nextBtnFinalScore;
+  } else if (state.config.mode !== 'ten_tries' && state.lives <= 0) {
+    nextBtnText.textContent = dict.nextBtnGameOver;
+  } else {
+    nextBtnText.textContent = dict.nextBtnTryAgain;
+  }
+}
+
+/**
+ * ============================================================================
+ * AUDIO MODE ROUND FLOW (TV NEWS BROADCASTS)
+ * ============================================================================
+ */
+function loadNextAudioRound() {
+  state.status = 'playing';
+  document.getElementById('revealCardContainer').classList.add('hidden');
+  document.getElementById('optionsGrid').innerHTML = '';
+
+  const question = generateAudioRoundQuestion();
+  state.currentQuestion = question;
+
+  syncVideoViewportVisibility();
+  renderAudioOptionsGrid(false);
+  updateHudUI();
+  loadBroadcasterIntoPlayer(question.broadcaster);
+}
+
+function renderAudioOptionsGrid(isRevealed) {
+  const grid = document.getElementById('optionsGrid');
+  grid.innerHTML = '';
+
+  const q = state.currentQuestion;
+  if (!q || !q.isAudio) return;
+
+  const showNative = state.config.alwaysShowNative || isRevealed;
+
+  q.options.forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.disabled = isRevealed;
+
+    const isTarget = opt.code === q.targetKey;
+    const isChosen = q.chosenCode === opt.code;
+
+    let styleClasses = 'option-btn w-full rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 ';
+    if (!isRevealed) {
+      styleClasses += 'bg-slate-950/80 border-slate-800 hover:border-sky-500 hover:bg-sky-950/30 text-white cursor-pointer';
+    } else if (isTarget) {
+      styleClasses += 'bg-emerald-950/60 border-emerald-500 text-emerald-100 shadow-lg shadow-emerald-950/50';
+    } else if (isChosen && !isTarget) {
+      styleClasses += 'bg-rose-950/60 border-rose-500 text-rose-100';
+    } else {
+      styleClasses += 'bg-slate-950/40 border-slate-800/60 text-slate-500 opacity-60';
+    }
+
+    btn.className = styleClasses;
+    btn.innerHTML = `
+      <div class="min-w-0 flex-1 flex flex-col justify-center">
+        <div class="option-lang-name font-bold leading-tight truncate">${escapeHtml(opt.label)}</div>
+        <div class="option-native-name leading-tight truncate mt-0.5 ${showNative ? 'text-slate-400' : 'invisible select-none'}">${escapeHtml(opt.native)}</div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        ${isRevealed && isTarget ? '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>' : ''}
+        ${isRevealed && isChosen && !isTarget ? '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>' : ''}
+        <span class="hidden sm:inline-flex w-6 h-6 rounded-lg bg-slate-900 border border-slate-800 items-center justify-center text-[11px] font-mono text-slate-400">${idx + 1}</span>
+      </div>
+    `;
+
+    if (!isRevealed) {
+      btn.addEventListener('click', () => handleGuessSelection(opt.code));
+    }
+
+    grid.appendChild(btn);
+  });
+}
+
+function updateAudioRevealDetailsUI() {
+  const dict = t();
+  const q = state.currentQuestion;
+  if (!q || !q.isAudio) return;
+
+  const b = q.broadcaster;
+  const titleEl = document.getElementById('revealArticleTitle');
+  const detailsEl = document.getElementById('revealLangDetails');
+  const linkEl = document.getElementById('revealWikiLink');
+  const linkIcon = document.getElementById('revealExternalLinkIcon');
+  const linkText = document.getElementById('revealReadArticleText');
+
+  const videoTitle = audioEngine.currentVideoTitle || `${b.broadcaster} — Live News Broadcast`;
+  const videoUrl = audioEngine.currentVideoId
+    ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}`
+    : `https://www.youtube.com/channel/${encodeURIComponent(b.channelId)}`;
+
+  const localizedCountry = getLocalizedCountryName(b);
+  const localizedLang = getLocalizedLanguageName({ code: b.langCode, name: b.langName });
+
+  titleEl.textContent = videoTitle;
+  detailsEl.textContent = dict.revealAudioMeta(b.broadcaster, localizedCountry, b.flag, localizedLang, b.langNative);
+  linkEl.href = videoUrl;
+  if (linkIcon) linkIcon.className = 'fa-brands fa-youtube text-rose-500';
+  if (linkText) linkText.textContent = dict.revealWatchYoutubeText;
+}
+
+function renderAudioRevealCard() {
+  const dict = t();
+  const q = state.currentQuestion;
+  const revealCard = document.getElementById('revealCardContainer');
+  const statusBanner = document.getElementById('revealStatusBanner');
+  const nextBtnText = document.getElementById('nextRoundBtnText');
+
+  // Always reveal the unblurred video after selecting an answer!
+  syncVideoViewportVisibility();
+
+  revealCard.classList.remove('hidden');
+
+  if (q.isCorrect) {
+    revealCard.className = 'reveal-card bg-slate-900/95 border border-emerald-500/50 rounded-xl sm:rounded-2xl shadow-2xl';
+    statusBanner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300';
+    statusBanner.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(dict.revealCorrect)}`;
+  } else {
+    revealCard.className = 'reveal-card bg-slate-900/95 border border-rose-500/50 rounded-xl sm:rounded-2xl shadow-2xl';
+    statusBanner.className = 'inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300';
+    statusBanner.innerHTML = `<i class="fa-solid fa-xmark"></i> ${escapeHtml(dict.revealWrong)}`;
+  }
+
+  updateAudioRevealDetailsUI();
+
+  if (state.config.mode === 'ten_tries' && state.round >= state.maxRounds) {
+    nextBtnText.textContent = dict.nextBtnFinalScore;
+  } else if (state.config.mode !== 'ten_tries' && state.lives <= 0) {
+    nextBtnText.textContent = dict.nextBtnGameOver;
+  } else {
+    nextBtnText.textContent = dict.nextBtnTryAgain;
+  }
+}
+
+/**
+ * ============================================================================
+ * SHARED ANSWER SELECTION, NEXT ROUND & SUMMARY SCREEN
+ * ============================================================================
+ */
+function handleGuessSelection(selectedCode) {
+  if (state.status !== 'playing' || !state.currentQuestion) return;
+
+  state.status = 'revealed';
+  const q = state.currentQuestion;
+  q.chosenCode = selectedCode;
+
+  if (q.isAudio) {
+    const isCorrect = selectedCode === q.targetKey;
+    q.isCorrect = isCorrect;
+
+    const chosenOpt = q.options.find(o => o.code === selectedCode) || q.options[0];
+    const targetOpt = q.options.find(o => o.code === q.targetKey) || q.options[0];
+
+    if (isCorrect) {
+      state.score++;
+      state.streak++;
+      if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+    } else {
+      state.streak = 0;
+      if (state.config.mode !== 'ten_tries') {
+        state.lives = Math.max(0, state.lives - 1);
+      }
+    }
+
+    const videoUrl = audioEngine.currentVideoId
+      ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}`
+      : `https://www.youtube.com/channel/${encodeURIComponent(q.broadcaster.channelId)}`;
+
+    state.history.push({
+      round: state.round,
+      isAudio: true,
+      targetKey: q.targetKey,
+      spokenLangCode: q.spokenLangCode,
+      targetDisplayName: targetOpt.label,
+      chosenDisplayName: chosenOpt.label,
+      isCorrect,
+      articleTitle: audioEngine.currentVideoTitle || q.broadcaster.broadcaster,
+      articleUrl: videoUrl
+    });
+
+    updateHudUI();
+    renderAudioOptionsGrid(true);
+    renderAudioRevealCard();
+  } else {
+    const isCorrect = selectedCode === q.targetLang.code;
+    q.isCorrect = isCorrect;
+
+    const chosenLangObj = WIKI_LANGUAGES.find(l => l.code === selectedCode) || q.targetLang;
+    if (isCorrect) {
+      state.score++;
+      state.streak++;
+      if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+    } else {
+      state.streak = 0;
+      if (state.config.mode !== 'ten_tries') {
+        state.lives = Math.max(0, state.lives - 1);
+      }
+    }
+
+    state.history.push({
+      round: state.round,
+      isAudio: false,
+      targetLang: q.targetLang,
+      chosenLang: chosenLangObj,
+      isCorrect,
+      articleTitle: q.articleTitle,
+      articleUrl: q.articleUrl
+    });
+
+    updateHudUI();
+    renderTextOptionsGrid(true);
+    renderTextRevealCard();
+  }
+}
+
+function handleNextStep() {
+  if (state.status !== 'revealed') return;
+
+  if (state.config.mode === 'ten_tries' && state.round >= state.maxRounds) {
+    stopAudioPlayback();
+    state.status = 'gameover';
+    renderSummaryScreen();
+    return;
+  }
+
+  if (state.config.mode !== 'ten_tries' && state.lives <= 0) {
+    stopAudioPlayback();
+    state.status = 'gameover';
+    renderSummaryScreen();
+    return;
+  }
+
+  state.round++;
+  if (state.appMode === 'audio') {
+    loadNextAudioRound();
+  } else {
+    loadNextTextRound();
+  }
+}
+
+function renderSummaryScreen() {
+  const dict = t();
+  showView('summaryScreen');
+
+  const totalPlayed = state.history.length;
+  const accuracy = totalPlayed > 0 ? Math.round((state.score / totalPlayed) * 100) : 0;
+
+  const iconBox = document.getElementById('summaryIconBox');
+  const modeBadge = document.getElementById('summaryModeBadge');
+  const titleEl = document.getElementById('summaryTitle');
+  const subEl = document.getElementById('summarySubtitle');
+
+  if (state.config.mode === 'ten_tries') {
+    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300';
+    iconBox.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+    modeBadge.textContent = dict.sumTenTriesBadge;
+    titleEl.textContent = dict.sumTenTriesTitle(state.score, state.maxRounds);
+  } else if (state.config.mode === 'endless_3') {
+    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-rose-500/20 border border-rose-500/40 text-rose-300';
+    iconBox.innerHTML = '<i class="fa-solid fa-heart-crack"></i>';
+    modeBadge.textContent = dict.sumEndless3Badge;
+    titleEl.textContent = dict.sumEndless3Title(state.score);
+  } else {
+    iconBox.className = 'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl shadow-lg bg-amber-500/20 border border-amber-500/40 text-amber-300';
+    iconBox.innerHTML = '<i class="fa-solid fa-skull"></i>';
+    modeBadge.textContent = dict.sumEndless1Badge;
+    titleEl.textContent = dict.sumEndless1Title(state.score);
+  }
+
+  subEl.textContent = `${dict.sumAccLabel}: ${accuracy}% • ${dict.sumStreakLabel}: ${state.bestStreak}`;
+  document.getElementById('sumFinalScore').textContent = state.score;
+  document.getElementById('sumAccuracy').textContent = `${accuracy}%`;
+  document.getElementById('sumRounds').textContent = totalPlayed;
+  document.getElementById('sumBestStreak').textContent = `${state.bestStreak} 🔥`;
+
+  const listEl = document.getElementById('summaryHistoryList');
+  listEl.innerHTML = '';
+
+  state.history.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'p-3 rounded-2xl bg-slate-950/75 border border-slate-800 flex items-center justify-between gap-3';
+
+    const targetDisplay = item.isAudio
+      ? item.targetDisplayName
+      : `${getLocalizedLanguageName(item.targetLang)} (${item.targetLang.native})`;
+    const chosenDisplay = item.isAudio
+      ? item.chosenDisplayName
+      : getLocalizedLanguageName(item.chosenLang);
+
+    row.innerHTML = `
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${item.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
+          <i class="fa-solid ${item.isCorrect ? 'fa-check' : 'fa-xmark'}"></i>
+        </span>
+        <div class="min-w-0">
+          <div class="text-xs font-bold text-white truncate">
+            ${dict.historyRound(item.round)}: <span class="text-indigo-300">${escapeHtml(targetDisplay)}</span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">
+            ${item.isCorrect ? escapeHtml(dict.historyGuessedCorrectly) : `${escapeHtml(dict.historyYourGuess)} <span class="text-rose-300">${escapeHtml(chosenDisplay)}</span>`} • "${escapeHtml(item.articleTitle)}"
+          </div>
+        </div>
+      </div>
+      <a href="${escapeHtml(item.articleUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+      </a>
+    `;
+    listEl.appendChild(row);
+  });
 }
 
 function openCustomModal() {
@@ -1092,33 +1327,69 @@ function closeCustomModal() {
   modal.classList.remove('flex');
 }
 
+function openAudioLangTreeModal() {
+  const modal = document.getElementById('audioLangTreeModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  updateAudioTreeCountsAndBadges();
+}
+
+function closeAudioLangTreeModal() {
+  const modal = document.getElementById('audioLangTreeModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function openAudioTerritoryTreeModal() {
+  const modal = document.getElementById('audioTerritoryTreeModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  updateAudioTreeCountsAndBadges();
+}
+
+function closeAudioTerritoryTreeModal() {
+  const modal = document.getElementById('audioTerritoryTreeModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
 function escapeHtml(str) {
-  if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#39;');
 }
 
 /**
- * Bind DOM Event Listeners
+ * ============================================================================
+ * EVENT LISTENERS & INITIALIZATION
+ * ============================================================================
  */
 document.querySelectorAll('.ui-lang-btn').forEach(btn => {
-  btn.addEventListener('click', () => setUiLanguage(btn.getAttribute('data-ui-lang')));
+  btn.addEventListener('click', () => {
+    state.config.uiLang = btn.getAttribute('data-ui-lang');
+    applyTranslations();
+  });
 });
 
+// Hub & Header Mode Switchers
+document.getElementById('brandHomeBtn').addEventListener('click', () => {
+  stopAudioPlayback();
+  state.status = 'hub';
+  showView('modeHubScreen');
+});
 document.getElementById('chooseTextModeCard').addEventListener('click', () => switchAppMode('text'));
 document.getElementById('chooseAudioModeCard').addEventListener('click', () => switchAppMode('audio'));
 document.getElementById('headerModeTextBtn').addEventListener('click', () => switchAppMode('text'));
 document.getElementById('headerModeAudioBtn').addEventListener('click', () => switchAppMode('audio'));
-document.getElementById('brandHomeBtn').addEventListener('click', () => {
-  stopAudioPlayback();
-  state.status = 'hub';
-  showScreen('hub');
-});
 
+// Config Cards (shared across Text Setup and Audio Setup)
 document.querySelectorAll('.config-card').forEach(card => {
   card.addEventListener('click', () => {
     const group = card.getAttribute('data-config-group');
@@ -1137,9 +1408,147 @@ document.querySelectorAll('.config-card').forEach(card => {
       if (val === 'custom') {
         openCustomModal();
       }
+    } else if (group === 'audioTarget') {
+      if (val === 'language') {
+        openAudioLangTreeModal();
+      } else if (val === 'country') {
+        openAudioTerritoryTreeModal();
+      }
     }
     updateConfigCardsUI();
   });
+});
+
+// Audio Language Tree Modal Listeners
+document.getElementById('closeAudioLangModalBtn').addEventListener('click', closeAudioLangTreeModal);
+document.getElementById('applyAudioLangModalBtn').addEventListener('click', closeAudioLangTreeModal);
+document.getElementById('audioLangTreeModal').addEventListener('click', (e) => {
+  if (e.target.id === 'audioLangTreeModal') closeAudioLangTreeModal();
+});
+
+document.querySelectorAll('.audio-tree-parent').forEach(parentCb => {
+  parentCb.addEventListener('change', () => {
+    const parentKey = parentCb.getAttribute('data-parent');
+    const children = Array.from(document.querySelectorAll(`.audio-lang-leaf[data-parent="${parentKey}"]`));
+    const warn = document.getElementById('audioLangWarningMsg');
+
+    if (parentCb.checked) {
+      children.forEach(c => state.config.audioLangCategories.add(c.value));
+      warn.classList.add('hidden');
+    } else {
+      const remaining = Array.from(state.config.audioLangCategories).filter(
+        val => !children.some(c => c.value === val)
+      );
+      if (remaining.length === 0) {
+        parentCb.checked = true;
+        warn.classList.remove('hidden');
+        return;
+      }
+      children.forEach(c => state.config.audioLangCategories.delete(c.value));
+      warn.classList.add('hidden');
+    }
+    updateAudioTreeCountsAndBadges();
+  });
+});
+
+document.querySelectorAll('.audio-lang-leaf').forEach(leafCb => {
+  leafCb.addEventListener('change', () => {
+    const warn = document.getElementById('audioLangWarningMsg');
+    if (leafCb.checked) {
+      state.config.audioLangCategories.add(leafCb.value);
+      warn.classList.add('hidden');
+    } else {
+      if (state.config.audioLangCategories.size <= 1) {
+        leafCb.checked = true;
+        warn.classList.remove('hidden');
+        return;
+      }
+      state.config.audioLangCategories.delete(leafCb.value);
+      warn.classList.add('hidden');
+    }
+    updateAudioTreeCountsAndBadges();
+  });
+});
+
+document.getElementById('selectAllAudioLangBtn').addEventListener('click', () => {
+  ALL_AUDIO_LANG_LEAVES.forEach(v => state.config.audioLangCategories.add(v));
+  document.getElementById('audioLangWarningMsg').classList.add('hidden');
+  updateAudioTreeCountsAndBadges();
+});
+
+document.getElementById('resetAudioLangBtn').addEventListener('click', () => {
+  state.config.audioLangCategories = new Set(DEFAULT_AUDIO_LANG_LEAVES);
+  document.getElementById('audioLangWarningMsg').classList.add('hidden');
+  updateAudioTreeCountsAndBadges();
+});
+
+// Audio Territory Tree Modal Listeners
+document.getElementById('closeAudioTerrModalBtn').addEventListener('click', closeAudioTerritoryTreeModal);
+document.getElementById('applyAudioTerrModalBtn').addEventListener('click', closeAudioTerritoryTreeModal);
+document.getElementById('audioTerritoryTreeModal').addEventListener('click', (e) => {
+  if (e.target.id === 'audioTerritoryTreeModal') closeAudioTerritoryTreeModal();
+});
+
+document.getElementById('crossContinentTrapToggle').addEventListener('change', (e) => {
+  state.config.crossContinentTrap = e.target.checked;
+  updateAudioTreeCountsAndBadges();
+});
+
+document.querySelectorAll('.audio-terr-parent').forEach(parentCb => {
+  parentCb.addEventListener('change', () => {
+    const parentKey = parentCb.getAttribute('data-parent');
+    const children = Array.from(document.querySelectorAll(`.audio-terr-leaf[data-parent="${parentKey}"]`));
+    const warn = document.getElementById('audioTerrWarningMsg');
+
+    if (parentCb.checked) {
+      children.forEach(c => state.config.audioTerritories.add(c.value));
+      warn.classList.add('hidden');
+    } else {
+      const remaining = Array.from(state.config.audioTerritories).filter(
+        val => !children.some(c => c.value === val)
+      );
+      if (remaining.length === 0) {
+        parentCb.checked = true;
+        warn.classList.remove('hidden');
+        return;
+      }
+      children.forEach(c => state.config.audioTerritories.delete(c.value));
+      warn.classList.add('hidden');
+    }
+    updateAudioTreeCountsAndBadges();
+  });
+});
+
+document.querySelectorAll('.audio-terr-leaf').forEach(leafCb => {
+  leafCb.addEventListener('change', () => {
+    const warn = document.getElementById('audioTerrWarningMsg');
+    if (leafCb.checked) {
+      state.config.audioTerritories.add(leafCb.value);
+      warn.classList.add('hidden');
+    } else {
+      if (state.config.audioTerritories.size <= 1) {
+        leafCb.checked = true;
+        warn.classList.remove('hidden');
+        return;
+      }
+      state.config.audioTerritories.delete(leafCb.value);
+      warn.classList.add('hidden');
+    }
+    updateAudioTreeCountsAndBadges();
+  });
+});
+
+document.getElementById('selectAllAudioTerrBtn').addEventListener('click', () => {
+  ALL_AUDIO_TERR_LEAVES.forEach(v => state.config.audioTerritories.add(v));
+  document.getElementById('audioTerrWarningMsg').classList.add('hidden');
+  updateAudioTreeCountsAndBadges();
+});
+
+document.getElementById('resetAudioTerrBtn').addEventListener('click', () => {
+  state.config.audioTerritories = new Set(DEFAULT_AUDIO_TERR_LEAVES);
+  state.config.crossContinentTrap = true;
+  document.getElementById('audioTerrWarningMsg').classList.add('hidden');
+  updateAudioTreeCountsAndBadges();
 });
 
 document.getElementById('closeCustomModalBtn').addEventListener('click', closeCustomModal);
@@ -1161,125 +1570,143 @@ document.querySelectorAll('.category-checkbox').forEach(cb => {
         return;
       }
       state.config.customCategories.delete(cb.value);
+      warn.classList.add('hidden');
     }
-    state.config.pool = 'custom';
+    updateCategoryCountsAndBadges();
     state.prefetchEpoch++;
     state.prefetchQueue = [];
     ensurePrefetchQueue();
-    updateConfigCardsUI();
   });
 });
 
 document.getElementById('selectAllCategoriesBtn').addEventListener('click', () => {
-  ALL_CATEGORIES.forEach(c => state.config.customCategories.add(c));
+  ALL_CATEGORIES.forEach(cat => state.config.customCategories.add(cat));
   document.getElementById('categoryWarningMsg').classList.add('hidden');
-  state.config.pool = 'custom';
+  updateCategoryCountsAndBadges();
   state.prefetchEpoch++;
   state.prefetchQueue = [];
   ensurePrefetchQueue();
-  updateConfigCardsUI();
 });
 
 document.getElementById('resetCategoriesBtn').addEventListener('click', () => {
   state.config.customCategories = new Set(['european', 'asian']);
   document.getElementById('categoryWarningMsg').classList.add('hidden');
-  state.config.pool = 'custom';
+  updateCategoryCountsAndBadges();
   state.prefetchEpoch++;
   state.prefetchQueue = [];
   ensurePrefetchQueue();
-  updateConfigCardsUI();
 });
 
-/**
- * Video Display Toggle Handler with Secret 6-Fast-Clicks "Remove Blur" Mode
- */
+// Start Game Buttons (Text & Audio)
+document.getElementById('startGameBtn').addEventListener('click', startNewGame);
+document.getElementById('startAudioGameBtn').addEventListener('click', startNewGame);
+document.getElementById('nextRoundBtn').addEventListener('click', handleNextStep);
+
+// Audio Player Bar Controls
+document.getElementById('audioPlayPauseBtn').addEventListener('click', toggleAudioPlayPause);
+document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioForward15s);
+document.getElementById('audioNewClipBtn').addEventListener('click', switchSameBroadcasterClip);
+document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
+
+// Video Display Toggle (with Secret 6-Fast-Clicks "Remove Blur" 3rd Option)
 document.getElementById('showBlurredVideoToggle').addEventListener('change', () => {
   const now = Date.now();
   state.videoToggleClickTimestamps.push(now);
+  // Keep clicks within the last 2.2 seconds
   state.videoToggleClickTimestamps = state.videoToggleClickTimestamps.filter(ts => now - ts <= 2200);
 
   if (state.videoToggleClickTimestamps.length >= 6) {
-    // 6 fast clicks detected! Unlock & activate the 3rd option: "Remove Blur"
+    state.videoToggleClickTimestamps = [];
     state.config.unblurredSecretUnlocked = true;
     state.config.videoDisplayMode = 'clear';
     state.config.showBlurredVideo = true;
-    state.videoToggleClickTimestamps = [];
   } else if (state.config.unblurredSecretUnlocked) {
-    // Cycle through all 3 modes once unlocked: 'off' -> 'blurred' -> 'clear' -> 'off'
-    const current = state.config.videoDisplayMode || 'off';
-    const nextMode = current === 'off' ? 'blurred' : (current === 'blurred' ? 'clear' : 'off');
-    state.config.videoDisplayMode = nextMode;
-    state.config.showBlurredVideo = nextMode !== 'off';
+    // Cycle through all 3 modes once unlocked: off -> blurred -> clear -> off
+    if (state.config.videoDisplayMode === 'off') {
+      state.config.videoDisplayMode = 'blurred';
+      state.config.showBlurredVideo = true;
+    } else if (state.config.videoDisplayMode === 'blurred') {
+      state.config.videoDisplayMode = 'clear';
+      state.config.showBlurredVideo = true;
+    } else {
+      state.config.videoDisplayMode = 'off';
+      state.config.showBlurredVideo = false;
+    }
   } else {
-    // Standard 2-state toggle ('off' <-> 'blurred')
-    const current = state.config.videoDisplayMode || 'off';
-    const nextMode = current === 'off' ? 'blurred' : 'off';
-    state.config.videoDisplayMode = nextMode;
-    state.config.showBlurredVideo = nextMode === 'blurred';
+    // Standard 2-state toggle: off <-> blurred
+    const nextIsBlurred = state.config.videoDisplayMode === 'off';
+    state.config.videoDisplayMode = nextIsBlurred ? 'blurred' : 'off';
+    state.config.showBlurredVideo = nextIsBlurred;
   }
 
   updateVideoToggleUI();
+  syncVideoViewportVisibility();
 });
 
-document.getElementById('alwaysShowNativeToggle').addEventListener('change', (e) => {
-  state.config.alwaysShowNative = e.target.checked;
-  updateNativeToggleUI();
-});
-
-// Audio Player Control Buttons
-document.getElementById('audioPlayPauseBtn').addEventListener('click', toggleAudioPlayPause);
-document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioForward15s);
-document.getElementById('audioNewClipBtn').addEventListener('click', () => {
-  if (audioEngine.currentBroadcaster) {
-    switchSameBroadcasterClip();
-  }
-});
-document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
-
-document.getElementById('startGameBtn').addEventListener('click', startNewGame);
-document.getElementById('startAudioGameBtn').addEventListener('click', startNewGame);
-document.getElementById('nextRoundBtn').addEventListener('click', handleNextAction);
-
+// Return to Setup Buttons
 document.getElementById('openSettingsBtn').addEventListener('click', () => {
   stopAudioPlayback();
   state.status = 'setup';
-  if (state.appMode === 'audio') {
-    showScreen('audio_setup');
-  } else {
-    showScreen('setup');
-    ensurePrefetchQueue();
-  }
+  showView(state.appMode === 'audio' ? 'audioSetupScreen' : 'setupScreen');
 });
 
 document.getElementById('summaryChangeSettingsBtn').addEventListener('click', () => {
   stopAudioPlayback();
   state.status = 'setup';
-  if (state.appMode === 'audio') {
-    showScreen('audio_setup');
-  } else {
-    showScreen('setup');
-    ensurePrefetchQueue();
-  }
+  showView(state.appMode === 'audio' ? 'audioSetupScreen' : 'setupScreen');
 });
 
 document.getElementById('summaryPlayAgainBtn').addEventListener('click', startNewGame);
 
-window.addEventListener('keydown', (e) => {
-  if (state.status === 'playing' && e.key >= '1' && e.key <= '4') {
-    const idx = parseInt(e.key, 10) - 1;
-    const buttons = document.getElementById('optionsGrid').querySelectorAll('button');
-    if (buttons[idx] && !buttons[idx].disabled) {
-      const code = buttons[idx].getAttribute('data-lang-code');
-      if (code) handleOptionSelect(code);
+// Native Name Toggle
+document.getElementById('alwaysShowNativeToggle').addEventListener('change', (e) => {
+  state.config.alwaysShowNative = e.target.checked;
+  document.getElementById('nativeToggleStateText').textContent = state.config.alwaysShowNative
+    ? t().nativeStateOn
+    : t().nativeStateOff;
+
+  if ((state.status === 'playing' || state.status === 'revealed') && state.currentQuestion) {
+    if (state.currentQuestion.isAudio) {
+      renderAudioOptionsGrid(state.status === 'revealed');
+    } else {
+      renderTextOptionsGrid(state.status === 'revealed');
     }
-  } else if (state.status === 'revealed' && (e.key === 'Enter' || e.key === ' ')) {
-    e.preventDefault();
-    handleNextAction();
   }
 });
 
-window.onload = function () {
-  setUiLanguage(state.config.uiLang);
-  showScreen('hub');
-  ensurePrefetchQueue();
-};
+// Keyboard Shortcuts (1-4 to pick, Enter/Space for Next)
+document.addEventListener('keydown', (e) => {
+  const langModal = document.getElementById('customCategoriesModal');
+  const audioLangModal = document.getElementById('audioLangTreeModal');
+  const audioTerrModal = document.getElementById('audioTerritoryTreeModal');
+  if (
+    !langModal.classList.contains('hidden') ||
+    (audioLangModal && !audioLangModal.classList.contains('hidden')) ||
+    (audioTerrModal && !audioTerrModal.classList.contains('hidden'))
+  ) {
+    if (e.key === 'Escape') {
+      closeCustomModal();
+      closeAudioLangTreeModal();
+      closeAudioTerritoryTreeModal();
+    }
+    return;
+  }
+
+  if (state.status === 'playing' && state.currentQuestion) {
+    const keyNum = parseInt(e.key, 10);
+    if (keyNum >= 1 && keyNum <= 4 && state.currentQuestion.options[keyNum - 1]) {
+      handleGuessSelection(state.currentQuestion.options[keyNum - 1].code);
+    }
+  } else if (state.status === 'revealed') {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleNextStep();
+    }
+  }
+});
+
+// Boot the App on the Initial Mode Chooser Hub ("Text" vs "Audio")
+applyTranslations();
+updateConfigCardsUI();
+showView('modeHubScreen');
+ensurePrefetchQueue();
