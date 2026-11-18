@@ -273,7 +273,6 @@ function generateAudioRoundQuestion() {
         if (!distractors.some(d => d.code === cand.code)) distractors.push(cand);
       }
     } else {
-      // Hard Mode: Same language family first, then same region
       const sameFamily = shuffleArray(others.filter(l => l.family === targetLangObj.family));
       const sameRegion = shuffleArray(others.filter(l => l.region === targetLangObj.region));
       for (const cand of [...sameFamily, ...sameRegion, ...shuffleArray(others)]) {
@@ -317,7 +316,6 @@ function generateAudioRoundQuestion() {
     if (diff === 'easy') {
       distractors = shuffleArray(others).slice(0, 3);
     } else if (diff === 'medium') {
-      // Medium: Same region/continent or neighboring language family
       const sameRegion = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
       const sameFamily = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
       for (const cand of [...sameRegion, ...sameFamily, ...shuffleArray(others)]) {
@@ -325,7 +323,6 @@ function generateAudioRoundQuestion() {
         if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
       }
     } else {
-      // Hard Mode: Prioritize countries speaking the SAME language (accent battle!) or same family + region
       const sameLanguageCountries = shuffleArray(others.filter(c => c.langCode === targetBroadcaster.langCode));
       const sameFamilyCountries = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
       const sameRegionCountries = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
@@ -370,13 +367,11 @@ function showScreen(screenName) {
   document.getElementById('gameScreen').classList.toggle('hidden', screenName !== 'game');
   document.getElementById('summaryScreen').classList.toggle('hidden', screenName !== 'summary');
 
-  // Show/hide the Video ON/OFF toggle bar above the Native Name toggle bar when in Audio mode
   const videoFooterBar = document.getElementById('videoToggleFooterBar');
   if (videoFooterBar) {
     videoFooterBar.classList.toggle('hidden', state.appMode !== 'audio' || screenName === 'hub');
   }
 
-  // Update header Text / Audio active buttons
   const textBtn = document.getElementById('headerModeTextBtn');
   const audioBtn = document.getElementById('headerModeAudioBtn');
   const brandIcon = document.getElementById('headerBrandIcon');
@@ -470,7 +465,6 @@ function updateHudUI() {
     livesBadge.classList.add('hidden');
   }
 
-  // Hide the Wikipedia prefetch dot when playing Audio mode
   const gamePrefetchBadge = document.getElementById('gamePrefetchBadge');
   if (gamePrefetchBadge) {
     gamePrefetchBadge.classList.toggle('hidden', state.appMode === 'audio');
@@ -751,7 +745,6 @@ function handleOptionSelect(chosenCode) {
   }
 
   if (state.currentQuestion.isAudio) {
-    // Reveal the actual un-blurred YouTube video immediately upon answering!
     syncVideoViewportVisibility();
     const b = state.currentQuestion.broadcaster;
     const vidId = audioEngine.currentVideoId;
@@ -909,7 +902,6 @@ function setUiLanguage(langCode) {
     if (el && typeof dict[id] === 'string') el.textContent = dict[id];
   });
 
-  // Mirror shared labels onto Audio Setup Screen
   document.getElementById('audioLabelGameMode').textContent = dict.labelGameMode;
   document.getElementById('audioModeTenTitle').textContent = dict.modeTenTitle;
   document.getElementById('audioModeTenDesc').textContent = dict.modeTenDesc;
@@ -926,6 +918,8 @@ function setUiLanguage(langCode) {
   document.getElementById('audioDiffHardDesc').textContent = dict.diffHardDesc;
   document.getElementById('startAudioGameBtnText').textContent = dict.startGameBtnText;
   document.getElementById('audioSkipBtnText').textContent = dict.audioSkipBtn;
+  const newClipBtnTextEl = document.getElementById('audioNewClipBtnText');
+  if (newClipBtnTextEl) newClipBtnTextEl.textContent = dict.audioNewClipBtn;
   document.getElementById('audioBlurredBadgeText').textContent = dict.audioBlurredBadge;
 
   document.getElementById('selectAllCategoriesBtn').textContent = dict.selectAllText;
@@ -946,7 +940,6 @@ function setUiLanguage(langCode) {
     } else {
       document.getElementById('choosePromptText').textContent =
         state.config.audioTarget === 'country' ? dict.chooseAudioCountryPrompt : dict.chooseAudioLangPrompt;
-      // Refresh localized labels on audio options
       state.currentQuestion.options.forEach(opt => {
         if (opt.rawCountry) {
           opt.label = `${opt.rawCountry.flag} ${getLocalizedCountryName(opt.rawCountry)}`;
@@ -1016,7 +1009,6 @@ document.querySelectorAll('.ui-lang-btn').forEach(btn => {
   btn.addEventListener('click', () => setUiLanguage(btn.getAttribute('data-ui-lang')));
 });
 
-// Mode Hub & Header Switchers
 document.getElementById('chooseTextModeCard').addEventListener('click', () => switchAppMode('text'));
 document.getElementById('chooseAudioModeCard').addEventListener('click', () => switchAppMode('audio'));
 document.getElementById('headerModeTextBtn').addEventListener('click', () => switchAppMode('text'));
@@ -1113,7 +1105,7 @@ document.getElementById('audioPlayPauseBtn').addEventListener('click', toggleAud
 document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioForward15s);
 document.getElementById('audioNewClipBtn').addEventListener('click', () => {
   if (audioEngine.currentBroadcaster) {
-    triggerBroadcasterFallback();
+    switchSameBroadcasterClip();
   }
 });
 document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
@@ -1162,6 +1154,6 @@ window.addEventListener('keydown', (e) => {
 
 window.onload = function () {
   setUiLanguage(state.config.uiLang);
-  showScreen('hub'); // Start at the Text vs Audio chooser screen
-  ensurePrefetchQueue(); // Warm up Wikipedia articles in the background immediately
+  showScreen('hub');
+  ensurePrefetchQueue();
 };
