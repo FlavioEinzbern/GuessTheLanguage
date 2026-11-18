@@ -1,9 +1,8 @@
-/**
- * ============================================================================
+/* ============================================================================
  * GUESS THE LANGUAGE — CUSTOM STYLESHEET
  * Separate layout tuning for Portrait (9:16 mobile list view) vs Landscape
- * ============================================================================
- */
+ * + TV News Audio/Video Player & Mode Hub styles
+ * ============================================================================ */
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -44,12 +43,81 @@ body {
 }
 
 /* ============================================================================
+ * TV NEWS AUDIO & VIDEO PLAYER STYLES
+ * ============================================================================ */
+.tv-viewport-hidden {
+  height: 0 !important;
+  min-height: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  margin: 0 !important;
+  border-width: 0 !important;
+}
+
+.tv-viewport-visible {
+  height: 11.5rem;
+  opacity: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+@media (orientation: landscape) {
+  .tv-viewport-visible {
+    height: 15.5rem;
+  }
+}
+
+/* Heavily blurs and crops out the top title bar and bottom chyrons while guessing */
+.tv-iframe-blurred {
+  transform: scale(1.36);
+  filter: blur(26px) saturate(0.85) brightness(0.85);
+  pointer-events: none;
+  user-select: none;
+  transition: transform 0.45s ease, filter 0.45s ease;
+}
+
+/* Crystal clear un-blurred video after selecting an answer */
+.tv-iframe-clear {
+  transform: scale(1);
+  filter: blur(0px) saturate(1) brightness(1);
+  pointer-events: auto;
+  transition: transform 0.45s ease, filter 0.45s ease;
+}
+
+/* Animated Audio Waveform Bars */
+.wave-bar {
+  width: 5px;
+  height: 12px;
+  border-radius: 9999px;
+  background: linear-gradient(to top, #6366f1, #38bdf8);
+  transition: height 0.2s ease;
+}
+
+.waveform-active .wave-bar:nth-child(odd) {
+  animation: wavePulse 0.85s infinite ease-in-out alternate;
+}
+
+.waveform-active .wave-bar:nth-child(even) {
+  animation: wavePulse 0.65s infinite ease-in-out alternate-reverse;
+}
+
+.waveform-active .wave-bar:nth-child(3n) {
+  animation: wavePulse 1.05s infinite ease-in-out alternate;
+}
+
+@keyframes wavePulse {
+  0% { height: 8px; opacity: 0.55; }
+  100% { height: 34px; opacity: 1; }
+}
+
+/* ============================================================================
  * PORTRAIT VIEW (9:16 Mobile Screens)
  * - Thinner header & light-only prefetch indicator
  * - Setup menu options stacked in full-width vertical lists (1 above the other)
- *   so all 3 sections (9 boxes total) + bottom native toggle fit in 9:16
- * - Shorter Wikipedia text square so snippet, 2x2 options, Next bar, HUD,
- *   and bottom "Show native language names" toggle always fit without scrolling
+ *   so all 3 sections + bottom toggle bars fit in 9:16
+ * - Shorter Wikipedia text square / compact TV box so snippet, 2x2 options,
+ *   Next bar, HUD, and bottom toggles always fit without scrolling
  * ============================================================================ */
 @media (orientation: portrait) {
   .header-inner {
@@ -118,7 +186,7 @@ body {
     line-height: 1.15;
   }
 
-  /* Stack the 3 option boxes in a single full-width column list */
+  /* Stack the option boxes in a single full-width column list */
   .setup-cards-grid {
     grid-template-columns: 1fr !important;
     gap: 0.22rem !important;
@@ -158,11 +226,11 @@ body {
 
   /* Gameplay View in Portrait: Shorter Wikipedia square so everything fits on 9:16 */
   .game-screen-section > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 0.4rem !important;
+    margin-top: 0.35rem !important;
   }
 
   .wiki-card {
-    padding: 0.65rem 0.85rem;
+    padding: 0.6rem 0.8rem;
   }
 
   #scannerLoadingState {
@@ -171,7 +239,7 @@ body {
   }
 
   .snippet-scroll-box {
-    max-height: 21dvh;
+    max-height: 20dvh;
   }
 
   .wiki-paragraph-text {
@@ -179,8 +247,12 @@ body {
     line-height: 1.55;
   }
 
+  .tv-viewport-visible {
+    height: 9.25rem;
+  }
+
   .option-btn {
-    height: 3.7rem;
+    height: 3.6rem;
     padding-left: 0.7rem;
     padding-right: 0.7rem;
   }
@@ -195,15 +267,15 @@ body {
   }
 
   .reveal-card {
-    padding: 0.5rem 0.75rem;
+    padding: 0.45rem 0.7rem;
   }
 
   .hud-bar {
-    padding: 0.45rem 0.65rem;
+    padding: 0.4rem 0.65rem;
   }
 
   .footer-bar {
-    padding: 0.35rem 0.7rem;
+    padding: 0.32rem 0.65rem;
   }
 
   .footer-subtext {
@@ -330,7 +402,7 @@ body {
   }
 
   .footer-bar {
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 1rem;
   }
 
   .footer-subtext {
