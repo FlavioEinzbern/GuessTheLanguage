@@ -1,13 +1,14 @@
 /**
  * ============================================================================
- * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (Option A/B Hybrid)
+ * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (Option A/B Hybrid — Error 153 & Sync Fixed)
  * ============================================================================
- * - Loads official YouTube IFrame API
- * - Fetches recent channel broadcasts via RSS XML feed (Option A) + Channel
- *   Uploads Playlists & curated broadcast IDs (Option B)
- * - Seeks to random timestamps (`startSeconds`) so clips start mid-broadcast
- * - Manages Blurred Video Mode vs Audio-Only Mode during guessing, and
- *   automatically un-blurs and reveals the actual video + title after guessing
+ * - Loads official YouTube IFrame API with valid `origin` on http/https
+ * - Immediately stops previous round's video (`stopVideo()`) before loading the
+ *   new broadcaster so a previous channel (e.g., PBS NewsHour) can NEVER bleed
+ *   into a new round (e.g., NOS Journaal)
+ * - Uses `loadVideoById()` with verified broadcast IDs from `audio-data.js`
+ *   plus background RSS discovery instead of raw `UU...` playlist IDs
+ * - Keeps `state.currentQuestion.broadcaster` 100% synchronized on fallback
  */
 
 const audioEngine = {
@@ -19,9 +20,11 @@ const audioEngine = {
   currentVideoId: null,
   currentVideoTitle: '',
   currentStartSeconds: 30,
-  currentPlaylistIndex: 0,
-  rssCache: new Map(), // channelId -> [{ videoId, title }]
+  currentClipIndex: 0,
+  rssCache: new Map(), // channelId -> [{ id, title, maxStart }]
+  failedVideoIds: new Set(),
   fallbackAttemptCount: 0,
+  loadRequestId: 0,
   watchdogTimer: null
 };
 
@@ -53,19 +56,27 @@ function createYouTubePlayerInstance() {
   const container = document.getElementById('ytPlayerElement');
   if (!container) return;
 
+  const playerVars = {
+    autoplay: 1,
+    controls: 0,
+    disablekb: 1,
+    fs: 0,
+    iv_load_policy: 3,
+    modestbranding: 1,
+    rel: 0,
+    playsinline: 1
+  };
+
+  // Pass origin when hosted on http:// or https:// (such as GitHub Pages)
+  if (window.location && /^https?:\/\//i.test(window.location.origin)) {
+    playerVars.origin = window.location.origin;
+  }
+
   audioEngine.player = new YT.Player('ytPlayerElement', {
     width: '100%',
     height: '100%',
-    playerVars: {
-      autoplay: 1,
-      controls: 0,
-      disablekb: 1,
-      fs: 0,
-      iv_load_policy: 3,
-      modestbranding: 1,
-      rel: 0,
-      playsinline: 1
-    },
+    host: 'https://www.youtube.com',
+    playerVars,
     events: {
       onReady: onYtPlayerReady,
       onStateChange: onYtPlayerStateChange,
@@ -87,12 +98,16 @@ function onYtPlayerStateChange(event) {
     audioEngine.isPlaying = true;
     audioEngine.fallbackAttemptCount = 0;
 
-    // Extract actual video ID and title from the live YouTube player
+    // Verify the playing video matches our expected videoId before reading its title
     try {
       const data = audioEngine.player.getVideoData();
-      if (data) {
-        if (data.video_id) audioEngine.currentVideoId = data.video_id;
-        if (data.title) audioEngine.currentVideoTitle = data.title;
+      if (data && data.video_id) {
+        if (!audioEngine.currentVideoId || data.video_id === audioEngine.currentVideoId) {
+          audioEngine.currentVideoId = data.video_id;
+          if (data.title) {
+            audioEngine.currentVideoTitle = data.title;
+          }
+        }
       }
     } catch (e) {}
 
@@ -110,11 +125,14 @@ function onYtPlayerStateChange(event) {
 
 function onYtPlayerError() {
   clearTimeout(audioEngine.watchdogTimer);
+  if (audioEngine.currentVideoId) {
+    audioEngine.failedVideoIds.add(audioEngine.currentVideoId);
+  }
   triggerBroadcasterFallback();
 }
 
 /**
- * Option A: Background RSS Feed Fetcher (fetches latest 15 videos from a channel's public XML feed)
+ * Option A: Background RSS Feed Fetcher (fetches latest videos from a channel's public XML feed)
  */
 async function fetchChannelRssVideos(broadcaster) {
   if (!broadcaster || !broadcaster.channelId) return [];
@@ -126,7 +144,7 @@ async function fetchChannelRssVideos(broadcaster) {
   const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3200);
+  const timer = setTimeout(() => controller.abort(), 2800);
 
   try {
     const res = await fetch(proxyUrl, { signal: controller.signal });
@@ -143,8 +161,9 @@ async function fetchChannelRssVideos(broadcaster) {
       const titleNode = entry.getElementsByTagName('title')[0];
       if (vidNode && vidNode.textContent) {
         videos.push({
-          videoId: vidNode.textContent.trim(),
-          title: titleNode ? titleNode.textContent.trim() : broadcaster.broadcaster
+          id: vidNode.textContent.trim(),
+          title: titleNode ? titleNode.textContent.trim() : broadcaster.broadcaster,
+          maxStart: 90
         });
       }
     }
@@ -159,91 +178,149 @@ async function fetchChannelRssVideos(broadcaster) {
 }
 
 /**
- * Loads a random TV news broadcast clip from the chosen broadcaster into the YouTube player.
+ * Returns the combined list of verified clips + cached RSS clips for a broadcaster,
+ * excluding any video IDs that previously threw an embed error.
  */
-async function loadBroadcasterIntoPlayer(broadcaster) {
+function getAvailableClipsForBroadcaster(broadcaster) {
+  if (!broadcaster) return [];
+  const curated = Array.isArray(broadcaster.videos) ? broadcaster.videos : [];
+  const rss = audioEngine.rssCache.get(broadcaster.channelId) || [];
+
+  const mergedMap = new Map();
+  curated.forEach(v => {
+    if (v && v.id && !audioEngine.failedVideoIds.has(v.id)) {
+      mergedMap.set(v.id, v);
+    }
+  });
+  rss.forEach(v => {
+    if (v && v.id && !audioEngine.failedVideoIds.has(v.id) && !mergedMap.has(v.id)) {
+      mergedMap.set(v.id, v);
+    }
+  });
+
+  const list = Array.from(mergedMap.values());
+  return list.length > 0 ? list : curated;
+}
+
+/**
+ * Loads a random TV news broadcast clip from the chosen broadcaster into the YouTube player.
+ * Immediately stops any previous video so audio from the last round can never bleed over.
+ */
+async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) {
+  const reqId = ++audioEngine.loadRequestId;
+  clearTimeout(audioEngine.watchdogTimer);
+
+  // Immediately stop the previous round's video so it can never keep playing!
+  if (audioEngine.player && typeof audioEngine.player.stopVideo === 'function') {
+    try {
+      audioEngine.player.stopVideo();
+    } catch (e) {}
+  }
+
   audioEngine.currentBroadcaster = broadcaster;
   audioEngine.currentVideoId = null;
   audioEngine.currentVideoTitle = '';
   audioEngine.isPlaying = false;
-  audioEngine.currentStartSeconds = Math.floor(Math.random() * 90) + 25; // 25s to 115s
-  audioEngine.currentPlaylistIndex = Math.floor(Math.random() * 8);
+  if (!keepAttemptCount) {
+    audioEngine.fallbackAttemptCount = 0;
+  }
 
   updateAudioControlsUI(true);
   syncVideoViewportVisibility();
 
-  // Warm up RSS videos asynchronously
-  fetchChannelRssVideos(broadcaster).then(rssList => {
-    if (rssList.length > 0 && !audioEngine.currentVideoTitle && audioEngine.currentVideoId) {
-      const found = rssList.find(v => v.videoId === audioEngine.currentVideoId);
-      if (found) audioEngine.currentVideoTitle = found.title;
-    }
-  });
+  // Warm up RSS cache in background for future clips
+  fetchChannelRssVideos(broadcaster);
 
-  if (!audioEngine.player || typeof audioEngine.player.loadPlaylist !== 'function') {
+  let clips = getAvailableClipsForBroadcaster(broadcaster);
+  if (clips.length === 0) {
+    // If no curated clips, await RSS feed before attempting playback
+    clips = await fetchChannelRssVideos(broadcaster);
+    if (reqId !== audioEngine.loadRequestId) return;
+  }
+
+  if (!audioEngine.player || typeof audioEngine.player.loadVideoById !== 'function') {
     initYouTubeApi();
     return;
   }
 
-  clearTimeout(audioEngine.watchdogTimer);
+  if (clips.length > 0) {
+    const pickIdx = Math.floor(Math.random() * clips.length);
+    const chosenClip = clips[pickIdx];
+    const maxStart = chosenClip.maxStart || 120;
+    const minStart = Math.min(12, Math.floor(maxStart / 3));
+    const randomStart = Math.floor(Math.random() * Math.max(10, maxStart - minStart)) + minStart;
 
-  // Check if we already have cached RSS videos for this channel
-  const cachedRss = audioEngine.rssCache.get(broadcaster.channelId);
-  if (cachedRss && cachedRss.length > 0 && audioEngine.fallbackAttemptCount === 0) {
-    const pick = cachedRss[Math.floor(Math.random() * Math.min(cachedRss.length, 10))];
-    audioEngine.currentVideoId = pick.videoId;
-    audioEngine.currentVideoTitle = pick.title;
+    audioEngine.currentClipIndex = pickIdx;
+    audioEngine.currentVideoId = chosenClip.id;
+    audioEngine.currentVideoTitle = chosenClip.title || broadcaster.broadcaster;
+    audioEngine.currentStartSeconds = randomStart;
+
     audioEngine.player.loadVideoById({
-      videoId: pick.videoId,
-      startSeconds: audioEngine.currentStartSeconds
-    });
-  } else {
-    // Load directly from the official Channel Uploads Playlist (UU...)
-    audioEngine.player.loadPlaylist({
-      list: broadcaster.uploadsList,
-      listType: 'playlist',
-      index: audioEngine.currentPlaylistIndex,
-      startSeconds: audioEngine.currentStartSeconds
+      videoId: chosenClip.id,
+      startSeconds: randomStart
     });
   }
 
   audioEngine.watchdogTimer = setTimeout(() => {
-    if (!audioEngine.isPlaying && state.appMode === 'audio' && state.status === 'playing') {
+    if (reqId === audioEngine.loadRequestId && !audioEngine.isPlaying && state.appMode === 'audio' && state.status === 'playing') {
       triggerBroadcasterFallback();
     }
-  }, 5000);
+  }, 6000);
 }
 
 /**
  * Automatic recovery if a specific broadcast clip blocks third-party embedding or fails to buffer.
+ * First tries other verified videos from the EXACT same broadcaster; if switching broadcasters,
+ * keeps `state.currentQuestion.broadcaster` 100% synchronized.
  */
 function triggerBroadcasterFallback() {
   if (!audioEngine.currentBroadcaster || !audioEngine.player) return;
+  clearTimeout(audioEngine.watchdogTimer);
   audioEngine.fallbackAttemptCount++;
 
-  if (audioEngine.fallbackAttemptCount <= 2) {
-    // Try another index in the channel's uploads playlist
-    const nextIdx = (audioEngine.currentPlaylistIndex + audioEngine.fallbackAttemptCount * 2) % 10;
-    const nextStart = Math.floor(Math.random() * 60) + 15;
+  const clips = getAvailableClipsForBroadcaster(audioEngine.currentBroadcaster);
+
+  // Step 1: Try another verified video clip from the SAME broadcaster
+  if (clips.length > 0 && audioEngine.fallbackAttemptCount <= clips.length) {
+    const nextIdx = (audioEngine.currentClipIndex + 1) % clips.length;
+    const nextClip = clips[nextIdx];
+    const maxStart = nextClip.maxStart || 90;
+    const nextStart = Math.floor(Math.random() * Math.max(10, maxStart - 10)) + 10;
+
+    audioEngine.currentClipIndex = nextIdx;
+    audioEngine.currentVideoId = nextClip.id;
+    audioEngine.currentVideoTitle = nextClip.title || audioEngine.currentBroadcaster.broadcaster;
+    audioEngine.currentStartSeconds = nextStart;
+
     try {
-      audioEngine.player.loadPlaylist({
-        list: audioEngine.currentBroadcaster.uploadsList,
-        listType: 'playlist',
-        index: nextIdx,
+      audioEngine.player.stopVideo();
+      audioEngine.player.loadVideoById({
+        videoId: nextClip.id,
         startSeconds: nextStart
       });
     } catch (e) {}
+
+    const reqId = audioEngine.loadRequestId;
+    audioEngine.watchdogTimer = setTimeout(() => {
+      if (reqId === audioEngine.loadRequestId && !audioEngine.isPlaying && state.appMode === 'audio' && state.status === 'playing') {
+        triggerBroadcasterFallback();
+      }
+    }, 6000);
     return;
   }
 
-  // Switch to another broadcaster with the same language or region if available
-  const sameLang = TV_NEWS_BROADCASTERS.filter(
-    b => b.langCode === audioEngine.currentBroadcaster.langCode && b.id !== audioEngine.currentBroadcaster.id
-  );
-  if (sameLang.length > 0) {
-    audioEngine.fallbackAttemptCount = 0;
-    const backup = sameLang[Math.floor(Math.random() * sameLang.length)];
-    loadBroadcasterIntoPlayer(backup);
+  // Step 2: If Guessing Language, we can switch to a sister broadcaster of the EXACT same language
+  // and update `state.currentQuestion.broadcaster` so the reveal metadata stays 100% accurate.
+  if (state.currentQuestion && state.currentQuestion.isAudio && state.currentQuestion.audioTarget === 'language') {
+    const sameLangBroadcasters = TV_NEWS_BROADCASTERS.filter(
+      b => b.langCode === audioEngine.currentBroadcaster.langCode && b.id !== audioEngine.currentBroadcaster.id
+    );
+    if (sameLangBroadcasters.length > 0) {
+      const backup = sameLangBroadcasters[Math.floor(Math.random() * sameLangBroadcasters.length)];
+      state.currentQuestion.broadcaster = backup;
+      loadBroadcasterIntoPlayer(backup, false);
+      return;
+    }
   }
 }
 
@@ -260,7 +337,9 @@ function toggleAudioPlayPause() {
 function skipAudioForward15s() {
   if (!audioEngine.player || typeof audioEngine.player.getCurrentTime !== 'function') return;
   const cur = audioEngine.player.getCurrentTime() || audioEngine.currentStartSeconds;
-  audioEngine.player.seekTo(cur + 15, true);
+  const duration = typeof audioEngine.player.getDuration === 'function' ? audioEngine.player.getDuration() : 0;
+  const targetTime = (duration > 30 && cur + 15 >= duration - 5) ? 15 : cur + 15;
+  audioEngine.player.seekTo(targetTime, true);
   audioEngine.player.playVideo();
 }
 
@@ -303,7 +382,6 @@ function syncVideoViewportVisibility() {
   const showVideoWhileGuessing = state.config.showBlurredVideo;
 
   if (isRevealed) {
-    // Post-Guess Reveal: ALWAYS show the actual clear video!
     viewportBox.classList.remove('tv-viewport-hidden');
     viewportBox.classList.add('tv-viewport-visible');
     iframeHolder.classList.remove('tv-iframe-blurred');
@@ -311,7 +389,6 @@ function syncVideoViewportVisibility() {
     if (blurredBadge) blurredBadge.classList.add('hidden');
     radioWaveBox.classList.add('hidden');
   } else if (showVideoWhileGuessing) {
-    // Guessing with Video ON: Show heavily blurred & cropped TV screen
     viewportBox.classList.remove('tv-viewport-hidden');
     viewportBox.classList.add('tv-viewport-visible');
     iframeHolder.classList.add('tv-iframe-blurred');
@@ -319,7 +396,6 @@ function syncVideoViewportVisibility() {
     if (blurredBadge) blurredBadge.classList.remove('hidden');
     radioWaveBox.classList.add('hidden');
   } else {
-    // Guessing with Video OFF: Hide video frame, show sleek Radio Audio Waveform
     viewportBox.classList.add('tv-viewport-hidden');
     viewportBox.classList.remove('tv-viewport-visible');
     iframeHolder.classList.add('tv-iframe-blurred');
