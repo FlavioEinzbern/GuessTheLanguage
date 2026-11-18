@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guess the Language — Wikipedia Edition</title>
+  <title>Guess the Language — Wikipedia &amp; World TV News</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
@@ -11,25 +11,39 @@
 </head>
 <body class="flex flex-col min-h-screen selection:bg-indigo-500 selection:text-white">
 
-  <!-- TOP HEADER (Thinner in Portrait, Classic Checkpoint Layout in Landscape) -->
+  <!-- TOP HEADER -->
   <header class="site-header w-full border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
     <div class="header-inner max-w-5xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
-        <div class="header-logo rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-inner shrink-0">
-          <i class="fa-brands fa-wikipedia-w"></i>
-        </div>
+        <button id="brandHomeBtn" type="button" class="header-logo rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-inner shrink-0 hover:bg-indigo-600/30 transition" title="Choose Mode (Text / Audio)">
+          <i id="headerBrandIcon" class="fa-brands fa-wikipedia-w"></i>
+        </button>
         <div class="min-w-0">
           <h1 id="headerTitle" class="header-title font-extrabold tracking-tight text-white truncate">Guess the Language</h1>
-          <p id="headerSubtitle" class="header-subtitle text-[11px] text-slate-400 leading-none">Live Random Wikipedia Paragraph Scanner</p>
+          <p id="headerSubtitle" class="header-subtitle text-[11px] text-slate-400 leading-none">Wikipedia Text &amp; World TV News Audio</p>
         </div>
       </div>
 
-      <!-- Top-Right UI Language Selector -->
-      <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shrink-0">
-        <i class="fa-solid fa-earth-americas text-xs text-slate-400 pl-1.5 pr-0.5"></i>
-        <button type="button" data-ui-lang="en" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">English</button>
-        <button type="button" data-ui-lang="es" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Español</button>
-        <button type="button" data-ui-lang="pt" class="ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Português</button>
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- Quick Mode Switcher: Text vs Audio -->
+        <div class="flex items-center bg-slate-950/90 p-0.5 sm:p-1 rounded-xl border border-slate-800">
+          <button type="button" id="headerModeTextBtn" class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-indigo-600 text-white">
+            <i class="fa-brands fa-wikipedia-w text-[10px]"></i>
+            <span id="modeSwitchText">Text</span>
+          </button>
+          <button type="button" id="headerModeAudioBtn" class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-tv text-[10px]"></i>
+            <span id="modeSwitchAudio">Audio</span>
+          </button>
+        </div>
+
+        <!-- Top-Right UI Language Selector -->
+        <div class="flex items-center gap-0.5 sm:gap-1 bg-slate-950/80 p-0.5 sm:p-1 rounded-xl border border-slate-800 shrink-0">
+          <i class="fa-solid fa-earth-americas text-xs text-slate-400 pl-1.5 pr-0.5 hidden sm:inline"></i>
+          <button type="button" data-ui-lang="en" class="ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">English</button>
+          <button type="button" data-ui-lang="es" class="ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Español</button>
+          <button type="button" data-ui-lang="pt" class="ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition">Português</button>
+        </div>
       </div>
     </div>
   </header>
@@ -37,15 +51,63 @@
   <!-- MAIN CONTAINER -->
   <main class="main-container flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 flex flex-col justify-between">
 
-    <!-- 1. PRE-GAME SETUP SCREEN -->
-    <section id="setupScreen" class="setup-screen-section flex-1 flex flex-col">
+    <!-- 0. INITIAL MODE HUB SCREEN (CHOOSE TEXT OR AUDIO) -->
+    <section id="modeHubScreen" class="flex-1 flex flex-col justify-center">
+      <div class="bg-slate-900/85 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl space-y-5 sm:space-y-6">
+        <div class="text-center space-y-1.5">
+          <h2 id="hubHeading" class="text-xl sm:text-3xl font-extrabold text-white">Choose Your Game Experience</h2>
+          <p id="hubSubheading" class="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">Play with live random Wikipedia paragraphs or listen to TV news broadcasts from around the world.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
+          <!-- TEXT MODE CARD -->
+          <button id="chooseTextModeCard" type="button" class="group text-left p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-950/70 border-2 border-slate-800 hover:border-indigo-500 hover:bg-indigo-950/20 transition-all shadow-xl flex flex-col justify-between gap-4">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-2xl group-hover:scale-105 transition">
+                  <i class="fa-brands fa-wikipedia-w"></i>
+                </div>
+                <span id="hubTextBadge" class="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">Wikipedia Scanner</span>
+              </div>
+              <h3 id="hubTextTitle" class="text-lg sm:text-2xl font-extrabold text-white">Text Mode</h3>
+              <p id="hubTextDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">Read a clean, bracket-free random Wikipedia paragraph and identify which language it is written in.</p>
+            </div>
+            <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-indigo-400 group-hover:translate-x-1 transition">
+              <span>Open Text Game</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </div>
+          </button>
+
+          <!-- AUDIO MODE CARD -->
+          <button id="chooseAudioModeCard" type="button" class="group text-left p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-950/70 border-2 border-slate-800 hover:border-sky-500 hover:bg-sky-950/20 transition-all shadow-xl flex flex-col justify-between gap-4">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 text-2xl group-hover:scale-105 transition">
+                  <i class="fa-solid fa-tv"></i>
+                </div>
+                <span id="hubAudioBadge" class="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">World TV News</span>
+              </div>
+              <h3 id="hubAudioTitle" class="text-lg sm:text-2xl font-extrabold text-white">Audio Mode</h3>
+              <p id="hubAudioDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">Listen to real TV news broadcasts from across the globe and guess either the spoken Language or the Country.</p>
+            </div>
+            <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-sky-400 group-hover:translate-x-1 transition">
+              <span>Open Audio Game</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1A. TEXT PRE-GAME SETUP SCREEN (EXISTING WIKIPEDIA SETUP UNCHANGED) -->
+    <section id="setupScreen" class="hidden setup-screen-section flex-1 flex flex-col">
       <div class="setup-panel bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl flex-1 flex flex-col justify-between">
         <div class="setup-panel-header flex items-center justify-between gap-2 border-b border-slate-800">
           <div class="min-w-0">
             <h2 id="setupHeading" class="setup-heading font-bold text-white">Configure Your Game</h2>
             <p id="setupSubheading" class="setup-subheading text-slate-400">Choose your mode, Wikipedia language pool, and distractor difficulty.</p>
           </div>
-          <!-- Background Prefetch Status (Light-only in Portrait, Full Pill in Landscape) -->
+          <!-- Background Prefetch Status -->
           <div id="setupPrefetchBadge" class="prefetch-badge inline-flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-700 shrink-0" title="Warming up articles...">
             <span id="setupPrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
             <span id="setupPrefetchText" class="prefetch-label-text text-xs font-medium text-slate-300">Warming up articles...</span>
@@ -152,10 +214,117 @@
       </div>
     </section>
 
-    <!-- 2. GAMEPLAY SCREEN -->
+    <!-- 1B. AUDIO (TV NEWS) PRE-GAME SETUP SCREEN -->
+    <section id="audioSetupScreen" class="hidden setup-screen-section flex-1 flex flex-col">
+      <div class="setup-panel bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl flex-1 flex flex-col justify-between">
+        <div class="setup-panel-header flex items-center justify-between gap-2 border-b border-slate-800">
+          <div class="min-w-0">
+            <h2 id="audioSetupHeading" class="setup-heading font-bold text-white">Configure Audio TV News Game</h2>
+            <p id="audioSetupSubheading" class="setup-subheading text-slate-400">Choose whether to guess the Language or Country, your game mode, and difficulty.</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-bold shrink-0 flex items-center gap-1.5">
+            <i class="fa-solid fa-satellite-dish"></i>
+            <span>38 TV Channels</span>
+          </span>
+        </div>
+
+        <!-- STEP 1: GAME MODE -->
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="audioLabelGameMode" class="setup-step-label block font-bold uppercase tracking-wider text-sky-400">1. Select Game Mode</label>
+          <div class="setup-cards-grid grid grid-cols-3 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="mode" data-config-value="ten_tries" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioModeTenTitle" class="config-card-title font-bold text-white leading-tight">10 Tries Mode</span>
+                <i class="fa-solid fa-list-ol text-sky-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="audioModeTenDesc" class="config-card-desc text-slate-400">Play 10 rounds and get a full accuracy breakdown and score at the end.</p>
+            </button>
+
+            <button type="button" data-config-group="mode" data-config-value="endless_3" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioModeEndless3Title" class="config-card-title font-bold text-white leading-tight">Endless (3 Lives)</span>
+                <span class="text-rose-400 text-[10px] sm:text-xs tracking-tighter shrink-0"><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i><i class="fa-solid fa-heart"></i></span>
+              </div>
+              <p id="audioModeEndless3Desc" class="config-card-desc text-slate-400">Keep guessing as long as you can. You can miss 3 times before Game Over.</p>
+            </button>
+
+            <button type="button" data-config-group="mode" data-config-value="endless_1" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioModeEndless1Title" class="config-card-title font-bold text-white leading-tight">Endless (Single Life)</span>
+                <span class="text-amber-400 text-xs sm:text-sm shrink-0"><i class="fa-solid fa-skull"></i></span>
+              </div>
+              <p id="audioModeEndless1Desc" class="config-card-desc text-slate-400">Sudden-death survival mode. One wrong guess ends your streak immediately.</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 2: AUDIO TARGET (GUESS THE LANGUAGE OR GUESS THE COUNTRY) -->
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="labelAudioTarget" class="setup-step-label block font-bold uppercase tracking-wider text-sky-400">2. What Do You Want to Guess?</label>
+          <div class="setup-cards-grid grid grid-cols-2 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="audioTarget" data-config-value="language" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="targetLangTitle" class="config-card-title font-bold text-white leading-tight">Guess the Language</span>
+                <i class="fa-solid fa-comments text-sky-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="targetLangDesc" class="config-card-desc text-slate-400">Listen to the TV news anchor and identify which language is being spoken.</p>
+            </button>
+
+            <button type="button" data-config-group="audioTarget" data-config-value="country" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="targetCountryTitle" class="config-card-title font-bold text-white leading-tight">Guess the Country</span>
+                <i class="fa-solid fa-earth-americas text-emerald-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="targetCountryDesc" class="config-card-desc text-slate-400">Identify the exact country of the broadcast using language, dialect, and accent clues.</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: DIFFICULTY -->
+        <div class="setup-step-group flex flex-col justify-center">
+          <label id="audioLabelDifficulty" class="setup-step-label block font-bold uppercase tracking-wider text-sky-400">3. Select Difficulty</label>
+          <div class="setup-cards-grid grid grid-cols-3 gap-2 sm:gap-3.5">
+            <button type="button" data-config-group="difficulty" data-config-value="easy" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioDiffEasyTitle" class="config-card-title font-bold text-white leading-tight">Easy Mode</span>
+                <i class="fa-solid fa-dice text-emerald-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="audioDiffEasyDesc" class="config-card-desc text-slate-400">The 4 options are picked completely at random from around the world.</p>
+            </button>
+
+            <button type="button" data-config-group="difficulty" data-config-value="medium" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioDiffMedTitle" class="config-card-title font-bold text-white leading-tight">Medium Mode</span>
+                <i class="fa-solid fa-scale-balanced text-amber-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="audioDiffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages and countries from the same continent.</p>
+            </button>
+
+            <button type="button" data-config-group="difficulty" data-config-value="hard" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <span id="audioDiffHardTitle" class="config-card-title font-bold text-white leading-tight">Hard Mode</span>
+                <i class="fa-solid fa-fire text-rose-400 text-xs sm:text-sm shrink-0"></i>
+              </div>
+              <p id="audioDiffHardDesc" class="config-card-desc text-slate-400">Same language family or same spoken language (e.g. Spain vs. Mexico vs. Argentina).</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- START AUDIO GAME BUTTON -->
+        <div class="pt-1">
+          <button id="startAudioGameBtn" type="button" class="start-game-btn w-full rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2.5 transition transform active:scale-[0.99]">
+            <i class="fa-solid fa-play"></i>
+            <span id="startAudioGameBtnText">Start Game</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. GAMEPLAY SCREEN (SUPPORTS BOTH TEXT WIKIPEDIA CARD AND AUDIO TV NEWS CARD) -->
     <section id="gameScreen" class="hidden game-screen-section space-y-2.5 sm:space-y-3.5">
-      <!-- WIKIPEDIA PARAGRAPH CARD -->
-      <div class="wiki-card bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl relative overflow-hidden">
+
+      <!-- 2A. WIKIPEDIA PARAGRAPH CARD (SHOWN IN TEXT MODE) -->
+      <div id="textWikiCard" class="wiki-card bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl relative overflow-hidden">
         <div class="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-slate-800/80 text-xs text-slate-400">
           <div class="flex items-center gap-1.5 min-w-0">
             <i class="fa-brands fa-wikipedia-w text-indigo-400 shrink-0"></i>
@@ -173,13 +342,68 @@
           <p id="scannerStatusSub" class="text-xs text-slate-400 max-w-md">Searching for a clean paragraph (≥200 characters) without any (), {}, or [] brackets.</p>
         </div>
 
-        <!-- Paragraph Content (Bigger & easier to read in mobile portrait, classic checkpoint sizing in landscape) -->
+        <!-- Paragraph Content -->
         <div id="snippetContentArea" class="hidden snippet-scroll-box overflow-y-auto pr-1">
           <blockquote id="wikiParagraphText" class="wiki-serif wiki-paragraph-text text-slate-100 select-text break-words"></blockquote>
         </div>
       </div>
 
-      <!-- 4 LANGUAGE OPTIONS GRID (ALWAYS 2 ABOVE & 2 BELOW, FIXED SIZE) -->
+      <!-- 2B. TV NEWS BROADCAST PLAYER CARD (SHOWN IN AUDIO MODE) -->
+      <div id="audioPlayerCard" class="hidden wiki-card bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl relative overflow-hidden">
+        <!-- Top Broadcast Bar & Audio Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800/80 text-xs">
+          <div class="flex items-center gap-2 min-w-0">
+            <i class="fa-solid fa-tv text-sky-400 shrink-0"></i>
+            <span id="audioHeaderBadge" class="text-slate-300 font-semibold truncate">World TV News Broadcast Clip</span>
+            <span id="audioBroadcastStatusPill" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold text-[11px] flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>
+              <span>Tuning TV Broadcast...</span>
+            </span>
+          </div>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button id="audioPlayPauseBtn" type="button" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition">
+              <i id="audioPlayBtnIcon" class="fa-solid fa-pause"></i>
+              <span id="audioPlayBtnText">Pause</span>
+            </button>
+            <button id="audioSkip15Btn" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1 transition" title="Jump forward 15 seconds">
+              <i class="fa-solid fa-forward-step text-sky-400"></i>
+              <span id="audioSkipBtnText">+15s Segment</span>
+            </button>
+            <button id="audioNewClipBtn" type="button" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center gap-1 transition" title="Load another clip from this channel">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+            <button id="audioMuteBtn" type="button" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition" title="Mute / Unmute">
+              <i id="audioMuteBtnIcon" class="fa-solid fa-volume-high text-indigo-400"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- RADIO AUDIO WAVEFORM BOX (Shown while guessing when Video Toggle is OFF) -->
+        <div id="audioRadioWaveformBox" class="py-4 sm:py-6 px-3 flex flex-col items-center justify-center text-center space-y-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+          <div id="waveformBarsContainer" class="waveform-active flex items-center justify-center gap-1.5 h-9">
+            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+          </div>
+          <p id="audioWaveHint" class="text-xs text-slate-400">Listening to live national TV news audio... Video reveals after you answer!</p>
+        </div>
+
+        <!-- YOUTUBE VIDEO VIEWPORT (Blurred when Video Toggle is ON while guessing; ALWAYS Clear after answering!) -->
+        <div id="tvViewportWrapper" class="tv-viewport-hidden w-full rounded-2xl bg-black border border-slate-800 relative">
+          <div id="ytIframeScaleBox" class="w-full h-full tv-iframe-blurred">
+            <div id="ytPlayerElement" class="w-full h-full"></div>
+          </div>
+          <!-- Overlay badge shown only when blurred during guessing -->
+          <div id="tvBlurredOverlayBadge" class="hidden absolute bottom-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-slate-950/85 border border-slate-700 text-[11px] text-slate-300 font-semibold pointer-events-none flex items-center gap-1.5">
+            <i class="fa-solid fa-eye-slash text-sky-400"></i>
+            <span id="audioBlurredBadgeText">Blurred TV Feed (Un-blurs after answering)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 OPTIONS GRID (ALWAYS 2 ABOVE & 2 BELOW, FIXED SIZE) -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-xs text-slate-400 px-1">
           <span id="choosePromptText" class="truncate">Choose the language of this Wikipedia article:</span>
@@ -196,7 +420,7 @@
               <div id="revealStatusBanner" class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"></div>
               <h3 id="revealArticleTitle" class="text-xs sm:text-base font-bold text-white truncate max-w-[160px] sm:max-w-md"></h3>
               <a id="revealWikiLink" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0">
-                <i class="fa-brands fa-wikipedia-w"></i>
+                <i id="revealExternalLinkIcon" class="fa-brands fa-wikipedia-w"></i>
                 <span id="revealReadArticleText" class="hidden sm:inline">Open on Wikipedia</span>
                 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
               </a>
@@ -236,7 +460,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- Prefetch Status (Light-only in Portrait, Full Pill in Landscape) -->
+          <!-- Prefetch Status (Shown in Text Mode) -->
           <div id="gamePrefetchBadge" class="prefetch-badge inline-flex items-center justify-center rounded-full bg-slate-950 border border-slate-800" title="Preloaded status">
             <span id="gamePrefetchDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
             <span id="gamePrefetchText" class="prefetch-label-text text-xs font-medium text-slate-300">Next ready</span>
@@ -298,15 +522,35 @@
       </div>
     </section>
 
-    <!-- BOTTOM NATIVE NAME TOGGLE BAR -->
-    <footer class="pt-1">
+    <!-- BOTTOM TOGGLE BARS (VIDEO ON/OFF TOGGLE ABOVE NATIVE NAME TOGGLE) -->
+    <footer class="pt-1 space-y-1.5">
+      <!-- 1. VIDEO DISPLAY TOGGLE (SHOWN IN AUDIO MODE, ABOVE NATIVE NAME TOGGLE) -->
+      <div id="videoToggleFooterBar" class="hidden footer-bar bg-slate-900/75 border border-slate-800/90 rounded-xl sm:rounded-2xl flex items-center justify-between gap-2.5">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sky-400 text-xs sm:text-sm shrink-0">
+            <i class="fa-solid fa-video"></i>
+          </div>
+          <div class="min-w-0">
+            <div id="videoToggleTitle" class="text-xs font-semibold text-slate-200 truncate">Show blurred TV video while guessing</div>
+            <div id="videoToggleSub" class="footer-subtext text-[11px] text-slate-400">Default is off (audio-only until you answer, then video is revealed). Turn on for blurred TV preview.</div>
+          </div>
+        </div>
+
+        <label class="inline-flex items-center gap-2 cursor-pointer select-none shrink-0">
+          <span id="videoToggleStateText" class="text-xs font-semibold text-slate-400">Audio Only</span>
+          <input id="showBlurredVideoToggle" type="checkbox" class="sr-only peer" />
+          <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700"></div>
+        </label>
+      </div>
+
+      <!-- 2. NATIVE NAME TOGGLE BAR -->
       <div class="footer-bar bg-slate-900/75 border border-slate-800/90 rounded-xl sm:rounded-2xl flex items-center justify-between gap-2.5">
         <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 text-xs sm:text-sm shrink-0">
             <i class="fa-solid fa-language"></i>
           </div>
           <div class="min-w-0">
-            <div id="nativeToggleTitle" class="text-xs font-semibold text-slate-200 truncate">Show native language names below translated names</div>
+            <div id="nativeToggleTitle" class="text-xs font-semibold text-slate-200 truncate">Show native names below translated names</div>
             <div id="nativeToggleSub" class="footer-subtext text-[11px] text-slate-400">Default is off (revealed only after you select an answer). Turn on to always show.</div>
           </div>
         </div>
@@ -411,8 +655,10 @@
 
   <!-- Modular Game Scripts -->
   <script src="data.js"></script>
+  <script src="audio-data.js"></script>
   <script src="i18n.js"></script>
   <script src="scanner.js"></script>
+  <script src="audio-engine.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
