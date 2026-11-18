@@ -1,13 +1,12 @@
 /**
  * ============================================================================
- * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (Option 4 Implemented)
+ * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (With Multi-Segment & Intro-Skip Guard)
  * ============================================================================
- * 1. Audited Domestic Clips + Anchor-First Timestamps (`10s–60s`) so rounds
- *    begin on the studio presenter speaking the native language.
- * 2. Smart RSS Title Filter (`isCleanDomesticBroadcastTitle`) blocking 24/7
- *    livestreams, intro jingles, "No Comment" clips, and foreign leader speeches.
- * 3. Dedicated `switchSameBroadcasterClip()` for the "New Clip" button so a
- *    user can cycle to another video from the exact same broadcaster on demand.
+ * - Enforces exact timestamp ranges (`segments: [[start, end], ...]`) for
+ *   videos like Macau TDM (`MO-2` & `MO-3`), as well as intro skips (`minStart`)
+ *   for Québec (`CA-FR-1` > 3:29) and Mongolia (`MN-1..3`).
+ * - Continuously guards playback so if a multi-language video reaches the end
+ *   of an approved segment, it automatically jumps to the next approved segment.
  */
 
 const audioEngine = {
@@ -16,19 +15,22 @@ const audioEngine = {
   isPlaying: false,
   isMuted: false,
   currentBroadcaster: null,
+  currentClip: null,
   currentVideoId: null,
   currentVideoTitle: '',
   currentStartSeconds: 20,
   currentClipIndex: 0,
-  rssCache: new Map(), // channelId -> [{ id, title, minStart, maxStart }]
+  activeSegmentIndex: 0,
+  rssCache: new Map(),
   failedVideoIds: new Set(),
   fallbackAttemptCount: 0,
   loadRequestId: 0,
-  watchdogTimer: null
+  watchdogTimer: null,
+  segmentGuardTimer: null
 };
 
 /**
- * Option 4 RSS Title Filter:
+ * RSS Title Filter for non-curatedOnly channels:
  * Rejects 24/7 live streams, silent "No Comment" segments, intro jingles,
  * and foreign political speeches that are commonly subtitled rather than dubbed.
  */
@@ -36,20 +38,16 @@ function isCleanDomesticBroadcastTitle(title, broadcaster) {
   if (!title || typeof title !== 'string') return false;
   const lower = title.toLowerCase();
 
-  // 1. Block 24/7 livestreams, intros/jingles, and non-spoken segments
   const livestreamOrJinglePattern =
     /\b(live|livestream|en vivo|ao vivo|em direto|direto|canlı|24\/7|no comment|genérico|generico|intro|outro|abertura|vinheta|teaser|trailer|shorts|#shorts)\b/i;
   if (livestreamOrJinglePattern.test(lower)) {
     return false;
   }
 
-  // 2. Block explicitly subtitled foreign clips
   if (/\b(subtitles|subtitled|legendado|subtitulado|con subtítulos|com legendas)\b/i.test(lower)) {
     return false;
   }
 
-  // 3. For non-English broadcasters, block raw foreign leader speeches/pressers
-  // that frequently air in original English/foreign audio with local subtitles
   if (broadcaster && broadcaster.langCode !== 'en') {
     const foreignSpeechPattern =
       /\b(trump|biden|harris|vance|white house|pentagon|state department|zelensky|zelenskyy|putin|kremlin|netanyahu|macron|meloni|scholz|starmer|ursula von der leyen|nato|otan|un general assembly)\b/i;
@@ -62,14 +60,59 @@ function isCleanDomesticBroadcastTitle(title, broadcaster) {
 }
 
 /**
- * Computes a studio-anchor start timestamp (`minStart` to `maxStart`, capped at 60s)
- * so playback starts on the news presenter in the studio.
+ * Computes a valid start timestamp for a clip, honoring:
+ * - `clip.segments` (array of `[startSec, endSec]` windows, e.g. MO-2 & MO-3)
+ * - `clip.minStart` and `clip.maxStart` (including >60s offsets like CA-FR-1 & MN-1)
  */
 function computeAnchorStartSeconds(clip) {
-  const minS = Math.max(2, Number(clip && clip.minStart) || 10);
-  const rawMax = Number(clip && clip.maxStart) || 50;
-  const maxS = Math.max(minS + 4, Math.min(rawMax, 60));
+  if (clip && Array.isArray(clip.segments) && clip.segments.length > 0) {
+    const segIdx = Math.floor(Math.random() * clip.segments.length);
+    audioEngine.activeSegmentIndex = segIdx;
+    const [segMin, segMax] = clip.segments[segIdx];
+    const safeMax = Math.max(segMin, segMax - 12);
+    return Math.floor(Math.random() * (safeMax - segMin + 1)) + segMin;
+  }
+
+  audioEngine.activeSegmentIndex = 0;
+  const minS = Math.max(1, Number(clip && clip.minStart) || 10);
+  const rawMax = Number(clip && clip.maxStart) || (minS + 40);
+  const maxS = Math.max(minS + 4, rawMax);
   return Math.floor(Math.random() * (maxS - minS + 1)) + minS;
+}
+
+/**
+ * Starts a 1-second monitor that keeps playback inside approved segments
+ * (for videos with `segments` like MO-2/MO-3 or `minStart` like CA-FR-1/MN-1..3).
+ */
+function startSegmentBoundaryGuard() {
+  clearInterval(audioEngine.segmentGuardTimer);
+  audioEngine.segmentGuardTimer = setInterval(() => {
+    if (!audioEngine.isPlaying || !audioEngine.player || !audioEngine.currentClip) return;
+    if (typeof audioEngine.player.getCurrentTime !== 'function') return;
+
+    const cur = audioEngine.player.getCurrentTime();
+    if (typeof cur !== 'number' || isNaN(cur)) return;
+
+    const clip = audioEngine.currentClip;
+
+    // 1. Strict multi-segment enforcement (e.g. MO-2 & MO-3)
+    if (Array.isArray(clip.segments) && clip.segments.length > 0) {
+      const inAnySegment = clip.segments.some(([sMin, sMax]) => cur >= sMin - 1 && cur <= sMax);
+      if (!inAnySegment) {
+        const nextSegIdx = (audioEngine.activeSegmentIndex + 1) % clip.segments.length;
+        audioEngine.activeSegmentIndex = nextSegIdx;
+        const [nextStart] = clip.segments[nextSegIdx];
+        audioEngine.currentStartSeconds = nextStart;
+        audioEngine.player.seekTo(nextStart, true);
+      }
+      return;
+    }
+
+    // 2. Minimum start enforcement (e.g. CA-FR-1 > 209s, MN-1 > 81s, MN-2 > 44s, MN-3 > 35s)
+    if (typeof clip.minStart === 'number' && clip.minStart > 15 && cur < clip.minStart - 2) {
+      audioEngine.player.seekTo(clip.minStart, true);
+    }
+  }, 1000);
 }
 
 /**
@@ -140,8 +183,8 @@ function onYtPlayerStateChange(event) {
     clearTimeout(audioEngine.watchdogTimer);
     audioEngine.isPlaying = true;
     audioEngine.fallbackAttemptCount = 0;
+    startSegmentBoundaryGuard();
 
-    // Verify the playing video matches our expected videoId before reading its title
     try {
       const data = audioEngine.player.getVideoData();
       if (data && data.video_id) {
@@ -175,10 +218,11 @@ function onYtPlayerError() {
 }
 
 /**
- * Option A + Option 2: Background RSS Feed Fetcher with Domestic Title Filtering
+ * Background RSS Feed Fetcher (Skipped for `curatedOnly` channels so custom
+ * timestamp/segment rules are never bypassed).
  */
 async function fetchChannelRssVideos(broadcaster) {
-  if (!broadcaster || !broadcaster.channelId) return [];
+  if (!broadcaster || !broadcaster.channelId || broadcaster.curatedOnly) return [];
   if (audioEngine.rssCache.has(broadcaster.channelId)) {
     return audioEngine.rssCache.get(broadcaster.channelId);
   }
@@ -224,13 +268,12 @@ async function fetchChannelRssVideos(broadcaster) {
 }
 
 /**
- * Returns the combined list of verified clips + filtered RSS clips for a broadcaster,
- * excluding any video IDs that previously threw an embed error.
+ * Returns the verified clips for a broadcaster, excluding any video IDs that failed.
  */
 function getAvailableClipsForBroadcaster(broadcaster) {
   if (!broadcaster) return [];
   const curated = Array.isArray(broadcaster.videos) ? broadcaster.videos : [];
-  const rss = audioEngine.rssCache.get(broadcaster.channelId) || [];
+  const rss = broadcaster.curatedOnly ? [] : (audioEngine.rssCache.get(broadcaster.channelId) || []);
 
   const mergedMap = new Map();
   curated.forEach(v => {
@@ -250,11 +293,11 @@ function getAvailableClipsForBroadcaster(broadcaster) {
 
 /**
  * Loads a random TV news broadcast clip from the chosen broadcaster into the YouTube player.
- * Immediately stops any previous video so audio from the last round can never bleed over.
  */
 async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) {
   const reqId = ++audioEngine.loadRequestId;
   clearTimeout(audioEngine.watchdogTimer);
+  clearInterval(audioEngine.segmentGuardTimer);
 
   if (audioEngine.player && typeof audioEngine.player.stopVideo === 'function') {
     try {
@@ -263,6 +306,7 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
   }
 
   audioEngine.currentBroadcaster = broadcaster;
+  audioEngine.currentClip = null;
   audioEngine.currentVideoId = null;
   audioEngine.currentVideoTitle = '';
   audioEngine.isPlaying = false;
@@ -273,11 +317,12 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
   updateAudioControlsUI(true);
   syncVideoViewportVisibility();
 
-  // Warm up filtered RSS cache in background
-  fetchChannelRssVideos(broadcaster);
+  if (!broadcaster.curatedOnly) {
+    fetchChannelRssVideos(broadcaster);
+  }
 
   let clips = getAvailableClipsForBroadcaster(broadcaster);
-  if (clips.length === 0) {
+  if (clips.length === 0 && !broadcaster.curatedOnly) {
     clips = await fetchChannelRssVideos(broadcaster);
     if (reqId !== audioEngine.loadRequestId) return;
   }
@@ -293,6 +338,7 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
     const startSec = computeAnchorStartSeconds(chosenClip);
 
     audioEngine.currentClipIndex = pickIdx;
+    audioEngine.currentClip = chosenClip;
     audioEngine.currentVideoId = chosenClip.id;
     audioEngine.currentVideoTitle = chosenClip.title || broadcaster.broadcaster;
     audioEngine.currentStartSeconds = startSec;
@@ -311,9 +357,9 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
 }
 
 /**
- * Option 3: Dedicated manual "New Clip" action (`#audioNewClipBtn`).
- * Always loads a DIFFERENT video from the current broadcaster at a studio-anchor
- * timestamp (`10s–55s`) without switching countries.
+ * Dedicated manual "Try Another Clip" action (`#audioNewClipBtn`).
+ * Cycles to another approved video (or another approved segment if the broadcaster has 1 video)
+ * from the exact same broadcaster.
  */
 function switchSameBroadcasterClip() {
   if (!audioEngine.currentBroadcaster || !audioEngine.player) return;
@@ -328,6 +374,7 @@ function switchSameBroadcasterClip() {
   const nextStart = computeAnchorStartSeconds(nextClip);
 
   audioEngine.currentClipIndex = nextIdx;
+  audioEngine.currentClip = nextClip;
   audioEngine.currentVideoId = nextClip.id;
   audioEngine.currentVideoTitle = nextClip.title || audioEngine.currentBroadcaster.broadcaster;
   audioEngine.currentStartSeconds = nextStart;
@@ -355,7 +402,7 @@ function switchSameBroadcasterClip() {
 }
 
 /**
- * Automatic recovery if a specific broadcast clip blocks third-party embedding or fails to buffer.
+ * Automatic recovery if a broadcast clip fails to buffer.
  */
 function triggerBroadcasterFallback() {
   if (!audioEngine.currentBroadcaster || !audioEngine.player) return;
@@ -364,14 +411,11 @@ function triggerBroadcasterFallback() {
 
   const clips = getAvailableClipsForBroadcaster(audioEngine.currentBroadcaster);
 
-  // Step 1: Cycle through verified clips from the EXACT same broadcaster
   if (clips.length > 0 && audioEngine.fallbackAttemptCount <= clips.length) {
     switchSameBroadcasterClip();
     return;
   }
 
-  // Step 2: If Guessing Language, we can switch to a sister broadcaster of the EXACT same language
-  // and update `state.currentQuestion.broadcaster` so the reveal metadata stays 100% accurate.
   if (state.currentQuestion && state.currentQuestion.isAudio && state.currentQuestion.audioTarget === 'language') {
     const sameLangBroadcasters = TV_NEWS_BROADCASTERS.filter(
       b => b.langCode === audioEngine.currentBroadcaster.langCode && b.id !== audioEngine.currentBroadcaster.id
@@ -395,11 +439,33 @@ function toggleAudioPlayPause() {
   }
 }
 
+/**
+ * Jumps forward 15 seconds while respecting any segment boundaries (`MO-2`, `MO-3`)
+ * and minimum start offsets (`CA-FR-1`, `MN-1..3`).
+ */
 function skipAudioForward15s() {
   if (!audioEngine.player || typeof audioEngine.player.getCurrentTime !== 'function') return;
   const cur = audioEngine.player.getCurrentTime() || audioEngine.currentStartSeconds;
+  const clip = audioEngine.currentClip;
+
+  // If the current video has strict approved segments (e.g. MO-2, MO-3), keep +15s inside them
+  if (clip && Array.isArray(clip.segments) && clip.segments.length > 0) {
+    const currentSeg = clip.segments.find(([sMin, sMax]) => cur >= sMin - 2 && cur <= sMax);
+    if (currentSeg && cur + 15 <= currentSeg[1] - 3) {
+      audioEngine.player.seekTo(cur + 15, true);
+    } else {
+      const nextSegIdx = (audioEngine.activeSegmentIndex + 1) % clip.segments.length;
+      audioEngine.activeSegmentIndex = nextSegIdx;
+      const [nextStart] = clip.segments[nextSegIdx];
+      audioEngine.player.seekTo(nextStart, true);
+    }
+    audioEngine.player.playVideo();
+    return;
+  }
+
+  const minFloor = (clip && typeof clip.minStart === 'number') ? clip.minStart : 15;
   const duration = typeof audioEngine.player.getDuration === 'function' ? audioEngine.player.getDuration() : 0;
-  const targetTime = (duration > 30 && cur + 15 >= duration - 5) ? 15 : cur + 15;
+  const targetTime = (duration > 30 && cur + 15 >= duration - 5) ? minFloor : cur + 15;
   audioEngine.player.seekTo(targetTime, true);
   audioEngine.player.playVideo();
 }
@@ -418,6 +484,7 @@ function toggleAudioMute() {
 
 function stopAudioPlayback() {
   clearTimeout(audioEngine.watchdogTimer);
+  clearInterval(audioEngine.segmentGuardTimer);
   audioEngine.isPlaying = false;
   if (audioEngine.player && typeof audioEngine.player.stopVideo === 'function') {
     try {
@@ -426,12 +493,6 @@ function stopAudioPlayback() {
   }
 }
 
-/**
- * Controls the 3 visual states of the TV video viewport:
- * 1. Guessing + Video Toggle OFF -> Video hidden, Audio Radio Waveform shown
- * 2. Guessing + Video Toggle ON  -> Blurred & cropped TV screen shown (no titles/chyrons readable)
- * 3. Post-Guess Revealed         -> Actual clear video ALWAYS shown!
- */
 function syncVideoViewportVisibility() {
   const viewportBox = document.getElementById('tvViewportWrapper');
   const iframeHolder = document.getElementById('ytIframeScaleBox');
