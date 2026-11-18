@@ -1692,6 +1692,46 @@ const TV_NEWS_BROADCASTERS = [
     ]
   },
   {
+    id: 'za_enuus',
+    broadcaster: 'eNuus / kykNET (Suid-Afrika)',
+    countryCode: 'ZA',
+    countryName: 'South Africa',
+    countryNative: 'Suid-Afrika',
+    flag: '🇿🇦',
+    region: 'Africa',
+    langCode: 'af',
+    langName: 'Afrikaans',
+    langNative: 'Afrikaans',
+    family: 'Germanic',
+    channelId: 'UCeNuusKykNETSouthAfrica',
+    curatedOnly: true,
+    videos: [
+      // Approved: ZA-AF-2, ZA-AF-3
+      { id: 'iM41nxWNltA', title: 'eNuus / eNCA Afrikaans Nuusbulletin | Suid-Afrika', minStart: 10, maxStart: 55 },
+      { id: 'eT3-oZ_JlXs', title: 'Blitz Nuus Bulletin | Afrikaans Nuus', minStart: 10, maxStart: 55 }
+    ]
+  },
+  {
+    id: 'id_tvri_jv',
+    broadcaster: 'TVRI Yogyakarta (Pawarta Basa Jawa)',
+    countryCode: 'ID',
+    countryName: 'Indonesia',
+    countryNative: 'Indonesia (Jawa)',
+    flag: '🇮🇩',
+    region: 'Asia',
+    langCode: 'jv',
+    langName: 'Javanese',
+    langNative: 'Basa Jawa',
+    family: 'Austronesian',
+    channelId: 'UCTVRIYogyakartaJawa',
+    curatedOnly: true,
+    videos: [
+      // Approved: ID-JV-1, ID-JV-2
+      { id: 'ZYLnyBkJSqM', title: 'Pawarta Basa Jawa | TVRI Jogja Indonesia', minStart: 12, maxStart: 60 },
+      { id: 'DuZ1GLSpJgo', title: 'Berita Bahasa Jawa | TVRI Yogyakarta', minStart: 6, maxStart: 45 }
+    ]
+  },
+  {
     id: 'lk_adaderana',
     broadcaster: 'Ada Derana (අද දෙරණ)',
     countryCode: 'LK',
@@ -2071,7 +2111,7 @@ const COUNTRY_TRANSLATIONS = {
     JP: 'Japón', KR: 'Corea del Sur', KP: 'Corea del Norte',
     TW: 'Taiwán', CN: 'China', HK: 'Hong Kong',
     VN: 'Vietnam', TH: 'Tailandia', LA: 'Laos', KH: 'Camboya', MM: 'Birmania (Myanmar)',
-    ID: 'Indonesia', MY: 'Malasia', PH: 'Filipinas', KE: 'Kenia'
+    ID: 'Indonesia', MY: 'Malasia', PH: 'Filipinas', KE: 'Kenia', ZA: 'Sudáfrica'
   },
   pt: {
     ES: 'Espanha', MX: 'México', AR: 'Argentina', CO: 'Colômbia', CL: 'Chile',
@@ -2096,6 +2136,70 @@ const COUNTRY_TRANSLATIONS = {
     JP: 'Japão', KR: 'Coreia do Sul', KP: 'Coreia do Norte',
     TW: 'Taiwan', CN: 'China', HK: 'Hong Kong',
     VN: 'Vietnã', TH: 'Tailândia', LA: 'Laos', KH: 'Camboja', MM: 'Mianmar',
-    ID: 'Indonésia', MY: 'Malásia', PH: 'Filipinas', KE: 'Quênia'
+    ID: 'Indonésia', MY: 'Malásia', PH: 'Filipinas', KE: 'Quênia', ZA: 'África do Sul'
   }
 };
+
+/**
+ * Classifies every broadcaster into its Audio Language Tree leaf & Audio Territory Tree leaf
+ * so the tree modals and Cross-Continent Trap work across all 97 channels.
+ */
+function classifyAudioBroadcasterTrees() {
+  const euroOthers = new Set(['el', 'sq', 'eu', 'cy', 'ga', 'fi', 'et', 'hu', 'lt', 'lv']);
+  const eastAsiaLangs = new Set(['zh', 'yue', 'ja', 'ko', 'mn']);
+  const seAsiaLangs = new Set(['vi', 'th', 'lo', 'km', 'my', 'id', 'ms', 'tl', 'jv']);
+  const southAsiaLangs = new Set(['hi', 'ur', 'bn', 'si', 'ne']);
+
+  const northAmericaCodes = new Set(['US', 'CA']);
+  const caribCentralCodes = new Set(['MX', 'CU', 'PR']);
+  const southAmericaCodes = new Set(['BR', 'AR', 'CL', 'CO', 'UY', 'VE']);
+
+  const westEuropeCodes = new Set(['GB', 'IE', 'FR', 'BE', 'NL', 'DE', 'AT', 'CH', 'ES', 'PT', 'IT']);
+  const northEuropeCodes = new Set(['SE', 'NO', 'DK', 'FI', 'IS', 'EE', 'LV', 'LT']);
+  const eastBalkanEuropeCodes = new Set(['PL', 'CZ', 'SK', 'HU', 'RO', 'BG', 'GR', 'AL', 'MK', 'RS', 'BA', 'HR', 'SI', 'UA', 'BY', 'RU']);
+
+  const eastAsiaCodes = new Set(['CN', 'TW', 'HK', 'MO', 'JP', 'KR', 'KP', 'MN']);
+  const seAsiaCodes = new Set(['VN', 'TH', 'LA', 'KH', 'MM', 'ID', 'MY', 'PH']);
+  const southAsiaCodes = new Set(['IN', 'PK', 'BD', 'LK', 'NP']);
+  const oceaniaCodes = new Set(['AU', 'NZ']);
+  const subSaharanCodes = new Set(['KE', 'ZA', 'AO', 'MZ']);
+
+  TV_NEWS_BROADCASTERS.forEach(b => {
+    // 1. Language Tree Category
+    if (b.langCode === 'af') {
+      b.langCat = 'afr_west_asia_other';
+    } else if (b.region === 'Europe' || ['es', 'pt', 'en', 'fr', 'de', 'it', 'nl'].includes(b.langCode)) {
+      if (b.family === 'Romance') b.langCat = 'euro_romance';
+      else if (b.family === 'Germanic') b.langCat = 'euro_germanic';
+      else if (b.family === 'Slavic') b.langCat = 'euro_slavic';
+      else if (euroOthers.has(b.langCode)) b.langCat = 'euro_others';
+      else b.langCat = 'euro_others';
+    } else if (eastAsiaLangs.has(b.langCode)) {
+      b.langCat = 'asia_east';
+    } else if (seAsiaLangs.has(b.langCode)) {
+      b.langCat = 'asia_se';
+    } else if (southAsiaLangs.has(b.langCode)) {
+      b.langCat = 'asia_south';
+    } else {
+      // Middle East, Caucasus, Central Asia & Swahili/Afrikaans
+      b.langCat = 'afr_west_asia_other';
+    }
+
+    // 2. Territory Tree Category
+    const cc = b.countryCode;
+    if (northAmericaCodes.has(cc)) b.territory = 'am_north';
+    else if (caribCentralCodes.has(cc)) b.territory = 'am_carib_central';
+    else if (southAmericaCodes.has(cc)) b.territory = 'am_south';
+    else if (westEuropeCodes.has(cc)) b.territory = 'eu_west';
+    else if (northEuropeCodes.has(cc)) b.territory = 'eu_north';
+    else if (eastBalkanEuropeCodes.has(cc)) b.territory = 'eu_east_balkan';
+    else if (eastAsiaCodes.has(cc)) b.territory = 'ao_east_asia';
+    else if (seAsiaCodes.has(cc)) b.territory = 'ao_se_asia';
+    else if (southAsiaCodes.has(cc)) b.territory = 'ao_south_asia';
+    else if (oceaniaCodes.has(cc)) b.territory = 'ao_oceania';
+    else if (subSaharanCodes.has(cc)) b.territory = 'afwa_subsaharan';
+    else b.territory = 'afwa_mena_caucasus';
+  });
+}
+
+classifyAudioBroadcasterTrees();
