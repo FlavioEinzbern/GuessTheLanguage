@@ -15,8 +15,11 @@ const state = {
     audioTarget: 'language', // 'language' | 'country'
     customCategories: new Set(['european', 'asian']),
     alwaysShowNative: false,
-    showBlurredVideo: false
+    showBlurredVideo: false,
+    videoDisplayMode: 'off', // 'off' | 'blurred' | 'clear' (secret 3rd option)
+    unblurredSecretUnlocked: false
   },
+  videoToggleClickTimestamps: [],
   round: 1,
   maxRounds: 10,
   score: 0,
@@ -224,25 +227,65 @@ function buildAllDifficultyOptions(targetLang) {
  * ============================================================================
  * AUDIO MODE QUESTION & DISTRACTOR GENERATOR (LANGUAGE OR COUNTRY)
  * ============================================================================
+ * - In "Guess the Country" mode, avoids repeating the same spoken language
+ *   too often (e.g., prevents getting 4 Spanish countries followed by 4 other
+ *   Spanish countries) by:
+ *   1) Weighting target selection by unique language first rather than raw
+ *      broadcaster count (so 9 Spanish or 6 English channels don't dominate).
+ *   2) Blocking languages spoken in recent rounds (in 10 Tries Mode, never
+ *      repeating a spoken language across the 10 rounds; in Endless Mode,
+ *       enforcing a 4-round cooldown on the same spoken language).
  */
 function generateAudioRoundQuestion() {
   const isCountryTarget = state.config.audioTarget === 'country';
   const diff = state.config.difficulty;
 
-  // Prevent repeating the same language/country in 10 Tries Mode
   const usedKeys = new Set();
+  const blockedSpokenLangs = new Set();
+
   if (state.config.mode === 'ten_tries') {
     state.history.forEach(h => {
       if (h && h.targetKey) usedKeys.add(h.targetKey);
+      // In 10 Tries Mode, avoid repeating the same spoken language even in Guess the Country
+      if (h && h.spokenLangCode) blockedSpokenLangs.add(h.spokenLangCode);
+    });
+  } else {
+    // In Endless Mode, avoid repeating the same country or the same spoken language from the last 4 rounds
+    const recentHistory = state.history.slice(-4);
+    recentHistory.forEach(h => {
+      if (h && h.targetKey) usedKeys.add(h.targetKey);
+      if (h && h.spokenLangCode) blockedSpokenLangs.add(h.spokenLangCode);
     });
   }
 
-  const eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
+  // First filter broadcasters by unused country/language key AND non-repeated spoken language
+  let eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
     const key = isCountryTarget ? b.countryCode : b.langCode;
-    return !usedKeys.has(key);
+    return !usedKeys.has(key) && !blockedSpokenLangs.has(b.langCode);
   });
+
+  // Fallback if cooldown filtered everything out
+  if (eligibleBroadcasters.length === 0) {
+    eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
+      const key = isCountryTarget ? b.countryCode : b.langCode;
+      return !usedKeys.has(key);
+    });
+  }
   const poolToPick = eligibleBroadcasters.length > 0 ? eligibleBroadcasters : TV_NEWS_BROADCASTERS;
-  const targetBroadcaster = poolToPick[Math.floor(Math.random() * poolToPick.length)];
+
+  // Group eligible broadcasters by langCode so multi-country languages (Spanish, English, Portuguese, Arabic, French)
+  // don't appear more frequently than single-country languages.
+  const byLanguageMap = new Map();
+  poolToPick.forEach(b => {
+    if (!byLanguageMap.has(b.langCode)) {
+      byLanguageMap.set(b.langCode, []);
+    }
+    byLanguageMap.get(b.langCode).push(b);
+  });
+  const candidateLangCodes = Array.from(byLanguageMap.keys());
+  const chosenLangCode = candidateLangCodes[Math.floor(Math.random() * candidateLangCodes.length)];
+  const broadcastersForLang = byLanguageMap.get(chosenLangCode);
+  const targetBroadcaster = broadcastersForLang[Math.floor(Math.random() * broadcastersForLang.length)];
 
   if (!isCountryTarget) {
     // GUESS THE LANGUAGE IN AUDIO MODE
@@ -291,6 +334,7 @@ function generateAudioRoundQuestion() {
       isAudio: true,
       audioTarget: 'language',
       targetKey: targetBroadcaster.langCode,
+      spokenLangCode: targetBroadcaster.langCode,
       broadcaster: targetBroadcaster,
       targetLang: {
         code: targetBroadcaster.langCode,
@@ -303,7 +347,6 @@ function generateAudioRoundQuestion() {
     };
   } else {
     // GUESS THE COUNTRY IN AUDIO MODE
-    // Track all languages spoken across broadcasters per countryCode (e.g., CH has de+fr, CA has en+fr)
     const countryLangSetMap = new Map();
     const uniqueCountries = new Map();
     TV_NEWS_BROADCASTERS.forEach(b => {
@@ -323,13 +366,22 @@ function generateAudioRoundQuestion() {
     if (diff === 'easy') {
       distractors = shuffleArray(others).slice(0, 3);
     } else if (diff === 'medium') {
-      const sameRegion = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
-      const sameFamily = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
-      for (const cand of [...sameRegion, ...sameFamily, ...shuffleArray(others)]) {
+      // Medium Mode: countries from the same continent/region or language family,
+      // while avoiding filling all 4 slots with the exact same spoken language
+      const sameRegionDiffLang = shuffleArray(
+        others.filter(c => c.region === targetBroadcaster.region && c.langCode !== targetBroadcaster.langCode)
+      );
+      const sameFamilyDiffLang = shuffleArray(
+        others.filter(c => c.family === targetBroadcaster.family && c.langCode !== targetBroadcaster.langCode)
+      );
+      const sameRegionAny = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
+
+      for (const cand of [...sameRegionDiffLang, ...sameFamilyDiffLang, ...sameRegionAny, ...shuffleArray(others)]) {
         if (distractors.length >= 3) break;
         if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
       }
     } else {
+      // Hard Mode: prioritize countries speaking the same language (accent battle) or same language family
       const sameLanguageCountries = shuffleArray(
         others.filter(c => {
           const langSet = countryLangSetMap.get(c.countryCode);
@@ -356,6 +408,7 @@ function generateAudioRoundQuestion() {
       isAudio: true,
       audioTarget: 'country',
       targetKey: targetBroadcaster.countryCode,
+      spokenLangCode: targetBroadcaster.langCode,
       broadcaster: targetBroadcaster,
       targetLang: {
         code: targetBroadcaster.countryCode,
@@ -438,6 +491,11 @@ function updateCategoryCountsAndBadges() {
   document.querySelectorAll('.category-checkbox').forEach(cb => {
     cb.checked = state.config.customCategories.has(cb.value);
   });
+
+  const tvCountBadge = document.getElementById('tvChannelCountBadge');
+  if (tvCountBadge && typeof TV_NEWS_BROADCASTERS !== 'undefined') {
+    tvCountBadge.textContent = `${TV_NEWS_BROADCASTERS.length} TV Channels`;
+  }
 }
 
 function updateConfigCardsUI() {
@@ -768,6 +826,7 @@ function handleOptionSelect(chosenCode) {
       round: state.round,
       isAudio: true,
       targetKey: state.currentQuestion.targetKey,
+      spokenLangCode: state.currentQuestion.spokenLangCode || b.langCode,
       targetLang: target,
       chosenLang: { code: chosenOpt.code, name: chosenOpt.label || chosenOpt.name, native: chosenOpt.native },
       isCorrect,
@@ -966,14 +1025,43 @@ function setUiLanguage(langCode) {
   }
 }
 
+/**
+ * Updates the Video Display Toggle UI for all 3 states:
+ * - 'off': Audio Only
+ * - 'blurred': Blurred Video
+ * - 'clear': Remove Blur (Secret 3rd option unlocked by 6 fast clicks)
+ */
 function updateVideoToggleUI() {
   const dict = t();
   const labelEl = document.getElementById('videoToggleStateText');
+  const checkboxEl = document.getElementById('showBlurredVideoToggle');
+  const pillEl = document.getElementById('videoToggleSwitchTrack');
   if (!labelEl) return;
-  labelEl.textContent = state.config.showBlurredVideo ? dict.videoStateOn : dict.videoStateOff;
-  labelEl.className = state.config.showBlurredVideo
-    ? 'text-xs font-bold text-sky-400'
-    : 'text-xs font-semibold text-slate-400';
+
+  const mode = state.config.videoDisplayMode || 'off';
+  if (checkboxEl) {
+    checkboxEl.checked = mode !== 'off';
+  }
+
+  if (mode === 'clear') {
+    labelEl.textContent = dict.videoStateClear || 'Remove Blur 🔓';
+    labelEl.className = 'text-xs font-extrabold text-emerald-400';
+    if (pillEl) {
+      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-emerald-500 border border-emerald-400/60";
+    }
+  } else if (mode === 'blurred') {
+    labelEl.textContent = dict.videoStateOn;
+    labelEl.className = 'text-xs font-bold text-sky-400';
+    if (pillEl) {
+      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700";
+    }
+  } else {
+    labelEl.textContent = dict.videoStateOff;
+    labelEl.className = 'text-xs font-semibold text-slate-400';
+    if (pillEl) {
+      pillEl.className = "w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-sky-600 border border-slate-700";
+    }
+  }
 
   syncVideoViewportVisibility();
 }
@@ -1102,8 +1190,34 @@ document.getElementById('resetCategoriesBtn').addEventListener('click', () => {
   updateConfigCardsUI();
 });
 
-document.getElementById('showBlurredVideoToggle').addEventListener('change', (e) => {
-  state.config.showBlurredVideo = e.target.checked;
+/**
+ * Video Display Toggle Handler with Secret 6-Fast-Clicks "Remove Blur" Mode
+ */
+document.getElementById('showBlurredVideoToggle').addEventListener('change', () => {
+  const now = Date.now();
+  state.videoToggleClickTimestamps.push(now);
+  state.videoToggleClickTimestamps = state.videoToggleClickTimestamps.filter(ts => now - ts <= 2200);
+
+  if (state.videoToggleClickTimestamps.length >= 6) {
+    // 6 fast clicks detected! Unlock & activate the 3rd option: "Remove Blur"
+    state.config.unblurredSecretUnlocked = true;
+    state.config.videoDisplayMode = 'clear';
+    state.config.showBlurredVideo = true;
+    state.videoToggleClickTimestamps = [];
+  } else if (state.config.unblurredSecretUnlocked) {
+    // Cycle through all 3 modes once unlocked: 'off' -> 'blurred' -> 'clear' -> 'off'
+    const current = state.config.videoDisplayMode || 'off';
+    const nextMode = current === 'off' ? 'blurred' : (current === 'blurred' ? 'clear' : 'off');
+    state.config.videoDisplayMode = nextMode;
+    state.config.showBlurredVideo = nextMode !== 'off';
+  } else {
+    // Standard 2-state toggle ('off' <-> 'blurred')
+    const current = state.config.videoDisplayMode || 'off';
+    const nextMode = current === 'off' ? 'blurred' : 'off';
+    state.config.videoDisplayMode = nextMode;
+    state.config.showBlurredVideo = nextMode === 'blurred';
+  }
+
   updateVideoToggleUI();
 });
 
