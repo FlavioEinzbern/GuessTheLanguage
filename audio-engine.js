@@ -3,10 +3,12 @@
  * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (With Multi-Segment & Intro-Skip Guard)
  * ============================================================================
  * - Enforces exact timestamp ranges (`segments: [[start, end], ...]`) for
- *   videos like Macau TDM (`MO-2` & `MO-3`), as well as intro skips (`minStart`)
- *   for Québec (`CA-FR-1` > 3:29) and Mongolia (`MN-1..3`).
- * - Continuously guards playback so if a multi-language video reaches the end
- *   of an approved segment, it automatically jumps to the next approved segment.
+ *   videos like Macau TDM (`MO-2` & `MO-3`), Finland (`FI-1`), Iceland (`IS-1`),
+ *   as well as intro skips (`minStart`) for Québec (`CA-FR-1` > 3:29) and Mongolia (`MN-1..3`).
+ * - Supports 3 Video Display Modes while guessing:
+ *   1. 'off'     -> Audio Only (radio waveform)
+ *   2. 'blurred' -> Blurred TV Video
+ *   3. 'clear'   -> Secret Unblurred TV Video (unlocked by clicking toggle 6 times fast)
  */
 
 const audioEngine = {
@@ -61,7 +63,7 @@ function isCleanDomesticBroadcastTitle(title, broadcaster) {
 
 /**
  * Computes a valid start timestamp for a clip, honoring:
- * - `clip.segments` (array of `[startSec, endSec]` windows, e.g. MO-2 & MO-3)
+ * - `clip.segments` (array of `[startSec, endSec]` windows, e.g. MO-2, MO-3, FI-1, IS-1)
  * - `clip.minStart` and `clip.maxStart` (including >60s offsets like CA-FR-1 & MN-1)
  */
 function computeAnchorStartSeconds(clip) {
@@ -69,7 +71,7 @@ function computeAnchorStartSeconds(clip) {
     const segIdx = Math.floor(Math.random() * clip.segments.length);
     audioEngine.activeSegmentIndex = segIdx;
     const [segMin, segMax] = clip.segments[segIdx];
-    const safeMax = Math.max(segMin, segMax - 12);
+    const safeMax = Math.max(segMin, Math.min(segMin + 65, segMax - 12));
     return Math.floor(Math.random() * (safeMax - segMin + 1)) + segMin;
   }
 
@@ -82,7 +84,7 @@ function computeAnchorStartSeconds(clip) {
 
 /**
  * Starts a 1-second monitor that keeps playback inside approved segments
- * (for videos with `segments` like MO-2/MO-3 or `minStart` like CA-FR-1/MN-1..3).
+ * (for videos with `segments` like MO-2/MO-3/FI-1/IS-1 or `minStart` like CA-FR-1/MN-1..3).
  */
 function startSegmentBoundaryGuard() {
   clearInterval(audioEngine.segmentGuardTimer);
@@ -95,7 +97,7 @@ function startSegmentBoundaryGuard() {
 
     const clip = audioEngine.currentClip;
 
-    // 1. Strict multi-segment enforcement (e.g. MO-2 & MO-3)
+    // 1. Strict multi-segment enforcement (e.g. MO-2, MO-3, FI-1, IS-1)
     if (Array.isArray(clip.segments) && clip.segments.length > 0) {
       const inAnySegment = clip.segments.some(([sMin, sMax]) => cur >= sMin - 1 && cur <= sMax);
       if (!inAnySegment) {
@@ -440,7 +442,7 @@ function toggleAudioPlayPause() {
 }
 
 /**
- * Jumps forward 15 seconds while respecting any segment boundaries (`MO-2`, `MO-3`)
+ * Jumps forward 15 seconds while respecting any segment boundaries (`MO-2`, `MO-3`, `FI-1`, `IS-1`)
  * and minimum start offsets (`CA-FR-1`, `MN-1..3`).
  */
 function skipAudioForward15s() {
@@ -448,7 +450,6 @@ function skipAudioForward15s() {
   const cur = audioEngine.player.getCurrentTime() || audioEngine.currentStartSeconds;
   const clip = audioEngine.currentClip;
 
-  // If the current video has strict approved segments (e.g. MO-2, MO-3), keep +15s inside them
   if (clip && Array.isArray(clip.segments) && clip.segments.length > 0) {
     const currentSeg = clip.segments.find(([sMin, sMax]) => cur >= sMin - 2 && cur <= sMax);
     if (currentSeg && cur + 15 <= currentSeg[1] - 3) {
@@ -493,6 +494,11 @@ function stopAudioPlayback() {
   }
 }
 
+/**
+ * Updates the video player viewport visibility and blur state based on:
+ * - Whether the round has been answered (`state.status === 'revealed'`)
+ * - Or the 3-state video mode (`'off'`, `'blurred'`, or `'clear'` unlocked via 6 fast clicks)
+ */
 function syncVideoViewportVisibility() {
   const viewportBox = document.getElementById('tvViewportWrapper');
   const iframeHolder = document.getElementById('ytIframeScaleBox');
@@ -501,16 +507,18 @@ function syncVideoViewportVisibility() {
   if (!viewportBox || !iframeHolder || !radioWaveBox) return;
 
   const isRevealed = state.status === 'revealed';
-  const showVideoWhileGuessing = state.config.showBlurredVideo;
+  const videoMode = state.config.videoDisplayMode || (state.config.showBlurredVideo ? 'blurred' : 'off');
 
-  if (isRevealed) {
+  if (isRevealed || videoMode === 'clear') {
+    // Crystal-clear video (either after answering OR while guessing in secret 'Remove Blur' mode)
     viewportBox.classList.remove('tv-viewport-hidden');
     viewportBox.classList.add('tv-viewport-visible');
     iframeHolder.classList.remove('tv-iframe-blurred');
     iframeHolder.classList.add('tv-iframe-clear');
     if (blurredBadge) blurredBadge.classList.add('hidden');
     radioWaveBox.classList.add('hidden');
-  } else if (showVideoWhileGuessing) {
+  } else if (videoMode === 'blurred') {
+    // Blurred & cropped video while guessing
     viewportBox.classList.remove('tv-viewport-hidden');
     viewportBox.classList.add('tv-viewport-visible');
     iframeHolder.classList.add('tv-iframe-blurred');
@@ -518,6 +526,7 @@ function syncVideoViewportVisibility() {
     if (blurredBadge) blurredBadge.classList.remove('hidden');
     radioWaveBox.classList.add('hidden');
   } else {
+    // Audio Only (waveform shown, video hidden)
     viewportBox.classList.add('tv-viewport-hidden');
     viewportBox.classList.remove('tv-viewport-visible');
     iframeHolder.classList.add('tv-iframe-blurred');
