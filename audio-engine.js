@@ -1,14 +1,13 @@
 /**
  * ============================================================================
- * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (Option A/B Hybrid — Error 153 & Sync Fixed)
+ * YOUTUBE HYBRID AUDIO/VIDEO ENGINE (Option 4 Implemented)
  * ============================================================================
- * - Loads official YouTube IFrame API with valid `origin` on http/https
- * - Immediately stops previous round's video (`stopVideo()`) before loading the
- *   new broadcaster so a previous channel (e.g., PBS NewsHour) can NEVER bleed
- *   into a new round (e.g., NOS Journaal)
- * - Uses `loadVideoById()` with verified broadcast IDs from `audio-data.js`
- *   plus background RSS discovery instead of raw `UU...` playlist IDs
- * - Keeps `state.currentQuestion.broadcaster` 100% synchronized on fallback
+ * 1. Audited Domestic Clips + Anchor-First Timestamps (`10s–60s`) so rounds
+ *    begin on the studio presenter speaking the native language.
+ * 2. Smart RSS Title Filter (`isCleanDomesticBroadcastTitle`) blocking 24/7
+ *    livestreams, intro jingles, "No Comment" clips, and foreign leader speeches.
+ * 3. Dedicated `switchSameBroadcasterClip()` for the "New Clip" button so a
+ *    user can cycle to another video from the exact same broadcaster on demand.
  */
 
 const audioEngine = {
@@ -19,14 +18,59 @@ const audioEngine = {
   currentBroadcaster: null,
   currentVideoId: null,
   currentVideoTitle: '',
-  currentStartSeconds: 30,
+  currentStartSeconds: 20,
   currentClipIndex: 0,
-  rssCache: new Map(), // channelId -> [{ id, title, maxStart }]
+  rssCache: new Map(), // channelId -> [{ id, title, minStart, maxStart }]
   failedVideoIds: new Set(),
   fallbackAttemptCount: 0,
   loadRequestId: 0,
   watchdogTimer: null
 };
+
+/**
+ * Option 4 RSS Title Filter:
+ * Rejects 24/7 live streams, silent "No Comment" segments, intro jingles,
+ * and foreign political speeches that are commonly subtitled rather than dubbed.
+ */
+function isCleanDomesticBroadcastTitle(title, broadcaster) {
+  if (!title || typeof title !== 'string') return false;
+  const lower = title.toLowerCase();
+
+  // 1. Block 24/7 livestreams, intros/jingles, and non-spoken segments
+  const livestreamOrJinglePattern =
+    /\b(live|livestream|en vivo|ao vivo|em direto|direto|canlı|24\/7|no comment|genérico|generico|intro|outro|abertura|vinheta|teaser|trailer|shorts|#shorts)\b/i;
+  if (livestreamOrJinglePattern.test(lower)) {
+    return false;
+  }
+
+  // 2. Block explicitly subtitled foreign clips
+  if (/\b(subtitles|subtitled|legendado|subtitulado|con subtítulos|com legendas)\b/i.test(lower)) {
+    return false;
+  }
+
+  // 3. For non-English broadcasters, block raw foreign leader speeches/pressers
+  // that frequently air in original English/foreign audio with local subtitles
+  if (broadcaster && broadcaster.langCode !== 'en') {
+    const foreignSpeechPattern =
+      /\b(trump|biden|harris|vance|white house|pentagon|state department|zelensky|zelenskyy|putin|kremlin|netanyahu|macron|meloni|scholz|starmer|ursula von der leyen|nato|otan|un general assembly)\b/i;
+    if (foreignSpeechPattern.test(lower)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Computes a studio-anchor start timestamp (`minStart` to `maxStart`, capped at 60s)
+ * so playback starts on the news presenter in the studio.
+ */
+function computeAnchorStartSeconds(clip) {
+  const minS = Math.max(2, Number(clip && clip.minStart) || 10);
+  const rawMax = Number(clip && clip.maxStart) || 50;
+  const maxS = Math.max(minS + 4, Math.min(rawMax, 60));
+  return Math.floor(Math.random() * (maxS - minS + 1)) + minS;
+}
 
 /**
  * Injects the YouTube IFrame API script once.
@@ -67,7 +111,6 @@ function createYouTubePlayerInstance() {
     playsinline: 1
   };
 
-  // Pass origin when hosted on http:// or https:// (such as GitHub Pages)
   if (window.location && /^https?:\/\//i.test(window.location.origin)) {
     playerVars.origin = window.location.origin;
   }
@@ -132,7 +175,7 @@ function onYtPlayerError() {
 }
 
 /**
- * Option A: Background RSS Feed Fetcher (fetches latest videos from a channel's public XML feed)
+ * Option A + Option 2: Background RSS Feed Fetcher with Domestic Title Filtering
  */
 async function fetchChannelRssVideos(broadcaster) {
   if (!broadcaster || !broadcaster.channelId) return [];
@@ -159,11 +202,14 @@ async function fetchChannelRssVideos(broadcaster) {
     for (const entry of entries) {
       const vidNode = entry.getElementsByTagName('yt:videoId')[0] || entry.getElementsByTagName('videoId')[0];
       const titleNode = entry.getElementsByTagName('title')[0];
-      if (vidNode && vidNode.textContent) {
+      const rawTitle = titleNode ? titleNode.textContent.trim() : '';
+
+      if (vidNode && vidNode.textContent && isCleanDomesticBroadcastTitle(rawTitle, broadcaster)) {
         videos.push({
           id: vidNode.textContent.trim(),
-          title: titleNode ? titleNode.textContent.trim() : broadcaster.broadcaster,
-          maxStart: 90
+          title: rawTitle || broadcaster.broadcaster,
+          minStart: 12,
+          maxStart: 50
         });
       }
     }
@@ -178,7 +224,7 @@ async function fetchChannelRssVideos(broadcaster) {
 }
 
 /**
- * Returns the combined list of verified clips + cached RSS clips for a broadcaster,
+ * Returns the combined list of verified clips + filtered RSS clips for a broadcaster,
  * excluding any video IDs that previously threw an embed error.
  */
 function getAvailableClipsForBroadcaster(broadcaster) {
@@ -210,7 +256,6 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
   const reqId = ++audioEngine.loadRequestId;
   clearTimeout(audioEngine.watchdogTimer);
 
-  // Immediately stop the previous round's video so it can never keep playing!
   if (audioEngine.player && typeof audioEngine.player.stopVideo === 'function') {
     try {
       audioEngine.player.stopVideo();
@@ -228,12 +273,11 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
   updateAudioControlsUI(true);
   syncVideoViewportVisibility();
 
-  // Warm up RSS cache in background for future clips
+  // Warm up filtered RSS cache in background
   fetchChannelRssVideos(broadcaster);
 
   let clips = getAvailableClipsForBroadcaster(broadcaster);
   if (clips.length === 0) {
-    // If no curated clips, await RSS feed before attempting playback
     clips = await fetchChannelRssVideos(broadcaster);
     if (reqId !== audioEngine.loadRequestId) return;
   }
@@ -246,18 +290,16 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
   if (clips.length > 0) {
     const pickIdx = Math.floor(Math.random() * clips.length);
     const chosenClip = clips[pickIdx];
-    const maxStart = chosenClip.maxStart || 120;
-    const minStart = Math.min(12, Math.floor(maxStart / 3));
-    const randomStart = Math.floor(Math.random() * Math.max(10, maxStart - minStart)) + minStart;
+    const startSec = computeAnchorStartSeconds(chosenClip);
 
     audioEngine.currentClipIndex = pickIdx;
     audioEngine.currentVideoId = chosenClip.id;
     audioEngine.currentVideoTitle = chosenClip.title || broadcaster.broadcaster;
-    audioEngine.currentStartSeconds = randomStart;
+    audioEngine.currentStartSeconds = startSec;
 
     audioEngine.player.loadVideoById({
       videoId: chosenClip.id,
-      startSeconds: randomStart
+      startSeconds: startSec
     });
   }
 
@@ -269,9 +311,51 @@ async function loadBroadcasterIntoPlayer(broadcaster, keepAttemptCount = false) 
 }
 
 /**
+ * Option 3: Dedicated manual "New Clip" action (`#audioNewClipBtn`).
+ * Always loads a DIFFERENT video from the current broadcaster at a studio-anchor
+ * timestamp (`10s–55s`) without switching countries.
+ */
+function switchSameBroadcasterClip() {
+  if (!audioEngine.currentBroadcaster || !audioEngine.player) return;
+  const reqId = ++audioEngine.loadRequestId;
+  clearTimeout(audioEngine.watchdogTimer);
+
+  const clips = getAvailableClipsForBroadcaster(audioEngine.currentBroadcaster);
+  if (clips.length === 0) return;
+
+  const nextIdx = (audioEngine.currentClipIndex + 1) % clips.length;
+  const nextClip = clips[nextIdx];
+  const nextStart = computeAnchorStartSeconds(nextClip);
+
+  audioEngine.currentClipIndex = nextIdx;
+  audioEngine.currentVideoId = nextClip.id;
+  audioEngine.currentVideoTitle = nextClip.title || audioEngine.currentBroadcaster.broadcaster;
+  audioEngine.currentStartSeconds = nextStart;
+  audioEngine.isPlaying = false;
+
+  updateAudioControlsUI(true);
+
+  try {
+    audioEngine.player.stopVideo();
+    audioEngine.player.loadVideoById({
+      videoId: nextClip.id,
+      startSeconds: nextStart
+    });
+  } catch (e) {}
+
+  if (state.status === 'revealed') {
+    updateAudioRevealDetailsUI();
+  }
+
+  audioEngine.watchdogTimer = setTimeout(() => {
+    if (reqId === audioEngine.loadRequestId && !audioEngine.isPlaying && state.appMode === 'audio' && state.status === 'playing') {
+      triggerBroadcasterFallback();
+    }
+  }, 6000);
+}
+
+/**
  * Automatic recovery if a specific broadcast clip blocks third-party embedding or fails to buffer.
- * First tries other verified videos from the EXACT same broadcaster; if switching broadcasters,
- * keeps `state.currentQuestion.broadcaster` 100% synchronized.
  */
 function triggerBroadcasterFallback() {
   if (!audioEngine.currentBroadcaster || !audioEngine.player) return;
@@ -280,32 +364,9 @@ function triggerBroadcasterFallback() {
 
   const clips = getAvailableClipsForBroadcaster(audioEngine.currentBroadcaster);
 
-  // Step 1: Try another verified video clip from the SAME broadcaster
+  // Step 1: Cycle through verified clips from the EXACT same broadcaster
   if (clips.length > 0 && audioEngine.fallbackAttemptCount <= clips.length) {
-    const nextIdx = (audioEngine.currentClipIndex + 1) % clips.length;
-    const nextClip = clips[nextIdx];
-    const maxStart = nextClip.maxStart || 90;
-    const nextStart = Math.floor(Math.random() * Math.max(10, maxStart - 10)) + 10;
-
-    audioEngine.currentClipIndex = nextIdx;
-    audioEngine.currentVideoId = nextClip.id;
-    audioEngine.currentVideoTitle = nextClip.title || audioEngine.currentBroadcaster.broadcaster;
-    audioEngine.currentStartSeconds = nextStart;
-
-    try {
-      audioEngine.player.stopVideo();
-      audioEngine.player.loadVideoById({
-        videoId: nextClip.id,
-        startSeconds: nextStart
-      });
-    } catch (e) {}
-
-    const reqId = audioEngine.loadRequestId;
-    audioEngine.watchdogTimer = setTimeout(() => {
-      if (reqId === audioEngine.loadRequestId && !audioEngine.isPlaying && state.appMode === 'audio' && state.status === 'playing') {
-        triggerBroadcasterFallback();
-      }
-    }, 6000);
+    switchSameBroadcasterClip();
     return;
   }
 
