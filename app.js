@@ -1640,6 +1640,36 @@ document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioFor
 document.getElementById('audioNewClipBtn').addEventListener('click', switchSameBroadcasterClip);
 document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
 
+/**
+ * Syncs the bottom Video Display toggle label and track color across all 3 states:
+ * 'off' (Audio Only), 'blurred' (Blurred Video), and 'clear' (Remove Blur 🔓).
+ */
+function updateVideoToggleUI() {
+  const dict = t();
+  const stateTextEl = document.getElementById('videoToggleStateText');
+  const checkboxEl = document.getElementById('showBlurredVideoToggle');
+  const trackEl = document.getElementById('videoToggleSwitchTrack');
+  if (!stateTextEl || !checkboxEl) return;
+
+  const mode = state.config.videoDisplayMode || (state.config.showBlurredVideo ? 'blurred' : 'off');
+  if (mode === 'clear') {
+    checkboxEl.checked = true;
+    stateTextEl.textContent = dict.videoStateClear || 'Remove Blur 🔓';
+    stateTextEl.className = 'text-xs font-bold text-amber-400';
+    if (trackEl) trackEl.classList.add('!bg-amber-500');
+  } else if (mode === 'blurred') {
+    checkboxEl.checked = true;
+    stateTextEl.textContent = dict.videoStateOn || 'Blurred Video';
+    stateTextEl.className = 'text-xs font-semibold text-sky-400';
+    if (trackEl) trackEl.classList.remove('!bg-amber-500');
+  } else {
+    checkboxEl.checked = false;
+    stateTextEl.textContent = dict.videoStateOff || 'Audio Only';
+    stateTextEl.className = 'text-xs font-semibold text-slate-400';
+    if (trackEl) trackEl.classList.remove('!bg-amber-500');
+  }
+}
+
 // Video Display Toggle (with Secret 6-Fast-Clicks "Remove Blur" 3rd Option)
 document.getElementById('showBlurredVideoToggle').addEventListener('change', () => {
   const now = Date.now();
