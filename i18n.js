@@ -130,7 +130,11 @@ const I18N = {
     audioTerrModalTitle: 'Custom Territories',
     audioTerrModalSub: 'Choose which world territories can appear in Guess the Country.',
     trapToggleTitle: 'Cross-continent trap',
-    trapToggleDesc: 'Allows countries from unselected continents that share a selected language (e.g. Americas/Oceania/Africa sharing European languages).'
+    trapToggleDesc: 'Allows countries from unselected continents that share a selected language (e.g. Americas/Oceania/Africa sharing European languages).',
+    presetIberianTitle: 'Iberian Languages',
+    presetIberianSub: 'All Spanish & Portuguese globally',
+    presetAnglosphereTitle: 'Anglosphere',
+    presetAnglosphereSub: 'US, CA (EN), UK, IE, AU, NZ'
   },
   es: {
     headerTitle: 'Adivina el Idioma',
@@ -257,7 +261,11 @@ const I18N = {
     audioTerrModalTitle: 'Territorios Personalizados',
     audioTerrModalSub: 'Elige qué territorios pueden aparecer en Adivinar el País.',
     trapToggleTitle: 'Trampa intercontinental',
-    trapToggleDesc: 'Incluye países de continentes no seleccionados que comparten el mismo idioma (ej. América/Oceanía/África con lenguas europeas).'
+    trapToggleDesc: 'Incluye países de continentes no seleccionados que comparten el mismo idioma (ej. América/Oceanía/África con lenguas europeas).',
+    presetIberianTitle: 'Idiomas Ibéricos',
+    presetIberianSub: 'Todo el español y portugués global',
+    presetAnglosphereTitle: 'Angloesfera',
+    presetAnglosphereSub: 'EE. UU., CA (EN), RU, IE, AU, NZ'
   },
   pt: {
     headerTitle: 'Adivinhe o Idioma',
@@ -384,7 +392,11 @@ const I18N = {
     audioTerrModalTitle: 'Territórios Personalizados',
     audioTerrModalSub: 'Escolha quais territórios podem aparecer em Adivinhar o País.',
     trapToggleTitle: 'Armadilha intercontinental',
-    trapToggleDesc: 'Inclui países de continentes não selecionados que falam o mesmo idioma (ex.: Américas/Oceania/África com línguas europeias).'
+    trapToggleDesc: 'Inclui países de continentes não selecionados que falam o mesmo idioma (ex.: Américas/Oceania/África com línguas europeias).',
+    presetIberianTitle: 'Idiomas Ibéricos',
+    presetIberianSub: 'Todo o espanhol e português global',
+    presetAnglosphereTitle: 'Anglosfera',
+    presetAnglosphereSub: 'EUA, CA (EN), RU, IE, AU, NZ'
   }
 };
 
