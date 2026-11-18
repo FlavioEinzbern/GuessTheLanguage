@@ -1,18 +1,21 @@
 /**
  * ============================================================================
- * GAME STATE, DISTRACTOR LOGIC & UI CONTROLLER
+ * GAME STATE, DISTRACTOR LOGIC & UI CONTROLLER (TEXT & AUDIO MODES)
  * ============================================================================
  */
 
 const state = {
-  status: 'setup', // 'setup' | 'playing' | 'revealed' | 'gameover'
+  appMode: 'text', // 'text' (Wikipedia) | 'audio' (TV News)
+  status: 'hub',   // 'hub' | 'setup' | 'playing' | 'revealed' | 'gameover'
   config: {
     uiLang: detectBrowserLanguage(),
     mode: 'ten_tries',       // 'ten_tries' | 'endless_3' | 'endless_1'
     pool: 'stable',          // 'stable' | 'experimental' | 'custom'
     difficulty: 'easy',      // 'easy' | 'medium' | 'hard'
+    audioTarget: 'language', // 'language' | 'country'
     customCategories: new Set(['european', 'asian']),
-    alwaysShowNative: false
+    alwaysShowNative: false,
+    showBlurredVideo: false
   },
   round: 1,
   maxRounds: 10,
@@ -34,19 +37,30 @@ function t() {
 }
 
 function getLocalizedLanguageName(langObj) {
+  const code = langObj.code || langObj.langCode;
+  const fallbackName = langObj.name || langObj.langName;
   const ui = state.config.uiLang;
-  if (ui === 'en') return langObj.name;
-  if (MANUAL_LANG_NAMES[ui] && MANUAL_LANG_NAMES[ui][langObj.code]) {
-    return MANUAL_LANG_NAMES[ui][langObj.code];
+  if (ui === 'en') return fallbackName;
+  if (MANUAL_LANG_NAMES[ui] && MANUAL_LANG_NAMES[ui][code]) {
+    return MANUAL_LANG_NAMES[ui][code];
   }
   try {
     const dn = new Intl.DisplayNames([ui], { type: 'language' });
-    const translated = dn.of(langObj.code);
-    if (translated && translated.toLowerCase() !== langObj.code.toLowerCase()) {
+    const translated = dn.of(code);
+    if (translated && translated.toLowerCase() !== code.toLowerCase()) {
       return translated.charAt(0).toUpperCase() + translated.slice(1);
     }
   } catch (e) {}
-  return langObj.name;
+  return fallbackName;
+}
+
+function getLocalizedCountryName(broadcasterObj) {
+  const code = broadcasterObj.countryCode;
+  const ui = state.config.uiLang;
+  if (ui !== 'en' && COUNTRY_TRANSLATIONS[ui] && COUNTRY_TRANSLATIONS[ui][code]) {
+    return COUNTRY_TRANSLATIONS[ui][code];
+  }
+  return broadcasterObj.countryName;
 }
 
 /**
@@ -86,7 +100,7 @@ function areScriptsVisuallySimilar(scriptA, scriptB) {
 }
 
 /**
- * Builds the 4 language answer options according to Easy, Medium, or Hard distractor rules.
+ * Builds the 4 language answer options for TEXT mode according to Easy, Medium, or Hard rules.
  */
 function buildFourOptions(targetLang, difficultyOverride) {
   const difficulty = difficultyOverride || state.config.difficulty;
@@ -98,9 +112,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
   if (difficulty === 'easy') {
     distractors = shuffleArray(others).slice(0, 3);
   } else if (difficulty === 'medium') {
-    // Medium Mode:
-    // Avoid more than 2 extremely similar languages with the same/visually similar writing system
-    // or the same language family across the 4 options.
     const matchingClusters = MEDIUM_COUSIN_CLUSTERS.filter(cl => cl.includes(targetLang.code));
     const cousinCodes = new Set();
     matchingClusters.forEach(cl => cl.forEach(c => { if (c !== targetLang.code) cousinCodes.add(c); }));
@@ -115,7 +126,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
       const currentOptions = [targetLang, ...distractors];
       const similarScriptCount = currentOptions.filter(o => areScriptsVisuallySimilar(o.script, cand.script)).length;
       const sameFamilyCount = currentOptions.filter(o => o.family === cand.family).length;
-      // Never allow more than 2 options with the same/visually similar script or same family
       return similarScriptCount < 2 && sameFamilyCount < 2;
     };
 
@@ -126,7 +136,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
       clusterCandidates.filter(l => areScriptsVisuallySimilar(l.script, targetLang.script))
     );
 
-    // 1. Add at most 1 same/similar-script cousin so the target script has at most 2 options total
     for (const cand of sameScriptCousins) {
       if (canAddMediumCandidate(cand)) {
         distractors.push(cand);
@@ -134,7 +143,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
       }
     }
 
-    // 2. Fill remaining slots with cross-script cousins that respect the max-2 rule
     for (const cand of diffScriptCousins) {
       if (distractors.length >= 3) break;
       if (canAddMediumCandidate(cand)) {
@@ -142,7 +150,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
       }
     }
 
-    // 3. Fallback to active pool / full pool while still enforcing max-2 script & family diversity
     const diversePoolFallback = [
       ...shuffleArray(others.filter(l => !areScriptsVisuallySimilar(l.script, targetLang.script))),
       ...shuffleArray(allOthers.filter(l => !areScriptsVisuallySimilar(l.script, targetLang.script))),
@@ -155,7 +162,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
       }
     }
 
-    // 4. If pool is single-script (e.g. Latin-only custom category), still cap same-family at max 2
     for (const cand of shuffleArray(others)) {
       if (distractors.length >= 3) break;
       if (!distractors.some(d => d.code === cand.code)) {
@@ -164,16 +170,11 @@ function buildFourOptions(targetLang, difficultyOverride) {
       }
     }
   } else {
-    // Hard Mode:
-    // 1. Exact same script + same language family (preferring active pool first, then full database)
     const poolSameScriptFamily = shuffleArray(others.filter(l => l.script === targetLang.script && l.family === targetLang.family));
     const allSameScriptFamily = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family === targetLang.family));
-
-    // 2. Exact same script + different family (preferring active pool first, then full database)
     const poolSameScriptOnly = shuffleArray(others.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
     const allSameScriptOnly = shuffleArray(allOthers.filter(l => l.script === targetLang.script && l.family !== targetLang.family));
 
-    // 3. Visually similar Macro-Script fallback (when exact script has < 3 matches)
     const matchingMacroGroups = (typeof HARD_MACRO_SCRIPT_GROUPS !== 'undefined' ? HARD_MACRO_SCRIPT_GROUPS : [])
       .filter(group => group.includes(targetLang.script));
     const macroScripts = new Set();
@@ -183,8 +184,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
 
     const poolMacroMatches = shuffleArray(others.filter(l => macroScripts.has(l.script)));
     const allMacroMatches = shuffleArray(allOthers.filter(l => macroScripts.has(l.script)));
-
-    // 4. Same language family across scripts before final random fallback
     const sameFamilyFallback = shuffleArray(others.filter(l => l.family === targetLang.family));
 
     const prioritizedHardCandidates = [
@@ -213,10 +212,6 @@ function buildFourOptions(targetLang, difficultyOverride) {
   return shuffleArray([targetLang, ...distractors.slice(0, 3)]);
 }
 
-/**
- * Pre-generates answer option sets for all 3 difficulties (Easy, Medium, Hard)
- * so switching difficulty on the setup screen never invalidates preloaded articles.
- */
 function buildAllDifficultyOptions(targetLang) {
   return {
     easy: buildFourOptions(targetLang, 'easy'),
@@ -225,10 +220,190 @@ function buildAllDifficultyOptions(targetLang) {
   };
 }
 
+/**
+ * ============================================================================
+ * AUDIO MODE QUESTION & DISTRACTOR GENERATOR (LANGUAGE OR COUNTRY)
+ * ============================================================================
+ */
+function generateAudioRoundQuestion() {
+  const isCountryTarget = state.config.audioTarget === 'country';
+  const diff = state.config.difficulty;
+
+  // Prevent repeating the same language/country in 10 Tries Mode
+  const usedKeys = new Set();
+  if (state.config.mode === 'ten_tries') {
+    state.history.forEach(h => {
+      if (h && h.targetKey) usedKeys.add(h.targetKey);
+    });
+  }
+
+  const eligibleBroadcasters = TV_NEWS_BROADCASTERS.filter(b => {
+    const key = isCountryTarget ? b.countryCode : b.langCode;
+    return !usedKeys.has(key);
+  });
+  const poolToPick = eligibleBroadcasters.length > 0 ? eligibleBroadcasters : TV_NEWS_BROADCASTERS;
+  const targetBroadcaster = poolToPick[Math.floor(Math.random() * poolToPick.length)];
+
+  if (!isCountryTarget) {
+    // GUESS THE LANGUAGE IN AUDIO MODE
+    const uniqueLangMap = new Map();
+    TV_NEWS_BROADCASTERS.forEach(b => {
+      if (!uniqueLangMap.has(b.langCode)) {
+        uniqueLangMap.set(b.langCode, {
+          code: b.langCode,
+          name: b.langName,
+          native: b.langNative,
+          family: b.family,
+          region: b.region
+        });
+      }
+    });
+    const allAudioLangs = Array.from(uniqueLangMap.values());
+    const targetLangObj = uniqueLangMap.get(targetBroadcaster.langCode);
+    const others = allAudioLangs.filter(l => l.code !== targetLangObj.code);
+    let distractors = [];
+
+    if (diff === 'easy') {
+      distractors = shuffleArray(others).slice(0, 3);
+    } else if (diff === 'medium') {
+      const sameRegion = shuffleArray(others.filter(l => l.region === targetLangObj.region));
+      const sameFamily = shuffleArray(others.filter(l => l.family === targetLangObj.family));
+      for (const cand of [...sameRegion, ...sameFamily, ...shuffleArray(others)]) {
+        if (distractors.length >= 3) break;
+        if (!distractors.some(d => d.code === cand.code)) distractors.push(cand);
+      }
+    } else {
+      // Hard Mode: Same language family first, then same region
+      const sameFamily = shuffleArray(others.filter(l => l.family === targetLangObj.family));
+      const sameRegion = shuffleArray(others.filter(l => l.region === targetLangObj.region));
+      for (const cand of [...sameFamily, ...sameRegion, ...shuffleArray(others)]) {
+        if (distractors.length >= 3) break;
+        if (!distractors.some(d => d.code === cand.code)) distractors.push(cand);
+      }
+    }
+
+    const options = shuffleArray([targetLangObj, ...distractors.slice(0, 3)]).map(l => ({
+      code: l.code,
+      label: getLocalizedLanguageName(l),
+      native: l.native
+    }));
+
+    return {
+      isAudio: true,
+      audioTarget: 'language',
+      targetKey: targetBroadcaster.langCode,
+      broadcaster: targetBroadcaster,
+      targetLang: {
+        code: targetBroadcaster.langCode,
+        name: targetBroadcaster.langName,
+        native: targetBroadcaster.langNative,
+        script: 'Audio Broadcast',
+        family: targetBroadcaster.family
+      },
+      options
+    };
+  } else {
+    // GUESS THE COUNTRY IN AUDIO MODE
+    const uniqueCountries = new Map();
+    TV_NEWS_BROADCASTERS.forEach(b => {
+      if (!uniqueCountries.has(b.countryCode)) {
+        uniqueCountries.set(b.countryCode, b);
+      }
+    });
+    const allCountries = Array.from(uniqueCountries.values());
+    const others = allCountries.filter(c => c.countryCode !== targetBroadcaster.countryCode);
+    let distractors = [];
+
+    if (diff === 'easy') {
+      distractors = shuffleArray(others).slice(0, 3);
+    } else if (diff === 'medium') {
+      // Medium: Same region/continent or neighboring language family
+      const sameRegion = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
+      const sameFamily = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
+      for (const cand of [...sameRegion, ...sameFamily, ...shuffleArray(others)]) {
+        if (distractors.length >= 3) break;
+        if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
+      }
+    } else {
+      // Hard Mode: Prioritize countries speaking the SAME language (accent battle!) or same family + region
+      const sameLanguageCountries = shuffleArray(others.filter(c => c.langCode === targetBroadcaster.langCode));
+      const sameFamilyCountries = shuffleArray(others.filter(c => c.family === targetBroadcaster.family));
+      const sameRegionCountries = shuffleArray(others.filter(c => c.region === targetBroadcaster.region));
+
+      for (const cand of [...sameLanguageCountries, ...sameFamilyCountries, ...sameRegionCountries, ...shuffleArray(others)]) {
+        if (distractors.length >= 3) break;
+        if (!distractors.some(d => d.countryCode === cand.countryCode)) distractors.push(cand);
+      }
+    }
+
+    const options = shuffleArray([targetBroadcaster, ...distractors.slice(0, 3)]).map(c => ({
+      code: c.countryCode,
+      label: `${c.flag} ${getLocalizedCountryName(c)}`,
+      native: c.countryNative,
+      rawCountry: c
+    }));
+
+    return {
+      isAudio: true,
+      audioTarget: 'country',
+      targetKey: targetBroadcaster.countryCode,
+      broadcaster: targetBroadcaster,
+      targetLang: {
+        code: targetBroadcaster.countryCode,
+        name: `${targetBroadcaster.flag} ${getLocalizedCountryName(targetBroadcaster)}`,
+        native: targetBroadcaster.countryNative,
+        script: targetBroadcaster.langName,
+        family: targetBroadcaster.region
+      },
+      options
+    };
+  }
+}
+
+/**
+ * Screen & Mode Switching
+ */
 function showScreen(screenName) {
+  document.getElementById('modeHubScreen').classList.toggle('hidden', screenName !== 'hub');
   document.getElementById('setupScreen').classList.toggle('hidden', screenName !== 'setup');
+  document.getElementById('audioSetupScreen').classList.toggle('hidden', screenName !== 'audio_setup');
   document.getElementById('gameScreen').classList.toggle('hidden', screenName !== 'game');
   document.getElementById('summaryScreen').classList.toggle('hidden', screenName !== 'summary');
+
+  // Show/hide the Video ON/OFF toggle bar above the Native Name toggle bar when in Audio mode
+  const videoFooterBar = document.getElementById('videoToggleFooterBar');
+  if (videoFooterBar) {
+    videoFooterBar.classList.toggle('hidden', state.appMode !== 'audio' || screenName === 'hub');
+  }
+
+  // Update header Text / Audio active buttons
+  const textBtn = document.getElementById('headerModeTextBtn');
+  const audioBtn = document.getElementById('headerModeAudioBtn');
+  const brandIcon = document.getElementById('headerBrandIcon');
+
+  if (state.appMode === 'audio') {
+    textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
+    audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-sky-600 text-white shadow';
+    if (brandIcon) brandIcon.className = 'fa-solid fa-tv';
+  } else {
+    textBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1 transition bg-indigo-600 text-white shadow';
+    audioBtn.className = 'px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 text-slate-400 hover:text-white transition';
+    if (brandIcon) brandIcon.className = 'fa-brands fa-wikipedia-w';
+  }
+}
+
+function switchAppMode(targetMode) {
+  stopAudioPlayback();
+  state.appMode = targetMode;
+  state.status = 'setup';
+  if (targetMode === 'audio') {
+    initYouTubeApi();
+    showScreen('audio_setup');
+  } else {
+    showScreen('setup');
+    ensurePrefetchQueue();
+  }
+  updateConfigCardsUI();
 }
 
 function isEndlessMode() {
@@ -294,6 +469,12 @@ function updateHudUI() {
   } else {
     livesBadge.classList.add('hidden');
   }
+
+  // Hide the Wikipedia prefetch dot when playing Audio mode
+  const gamePrefetchBadge = document.getElementById('gamePrefetchBadge');
+  if (gamePrefetchBadge) {
+    gamePrefetchBadge.classList.toggle('hidden', state.appMode === 'audio');
+  }
 }
 
 function renderOptionButtons() {
@@ -303,8 +484,8 @@ function renderOptionButtons() {
   const showNativeNow = state.config.alwaysShowNative || isRevealed;
   const targetCode = state.currentQuestion.targetLang.code;
 
-  grid.innerHTML = state.currentQuestion.options.map((lang, idx) => {
-    const translatedName = getLocalizedLanguageName(lang);
+  grid.innerHTML = state.currentQuestion.options.map((opt, idx) => {
+    const primaryLabel = opt.label ? opt.label : getLocalizedLanguageName(opt);
     let btnClasses = 'option-btn w-full rounded-xl sm:rounded-2xl border text-left flex items-center justify-between gap-2 overflow-hidden ';
     let badgeClasses = 'w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ';
     let statusIcon = '';
@@ -313,21 +494,18 @@ function renderOptionButtons() {
       btnClasses += 'bg-slate-900/90 border-slate-800 hover:border-indigo-500/60 text-white';
       badgeClasses += 'bg-slate-800 text-slate-300 border border-slate-700';
     } else {
-      const isSelected = state.selectedCode === lang.code;
-      const isCorrect = lang.code === targetCode;
+      const isSelected = state.selectedCode === opt.code;
+      const isCorrect = opt.code === targetCode;
 
       if (isSelected && isCorrect) {
-        // Selected & Right -> GREEN
         btnClasses += 'bg-emerald-600/25 border-emerald-500 text-white shadow-lg shadow-emerald-600/20';
         badgeClasses += 'bg-emerald-500 text-slate-950';
         statusIcon = '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>';
       } else if (isSelected && !isCorrect) {
-        // Selected & Wrong -> RED
         btnClasses += 'bg-rose-600/25 border-rose-500 text-white shadow-lg shadow-rose-600/20';
         badgeClasses += 'bg-rose-500 text-white';
         statusIcon = '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>';
       } else if (!isSelected && isCorrect) {
-        // Not selected, but is the Correct Answer -> BLUE
         btnClasses += 'bg-sky-600/25 border-sky-400 text-white shadow-lg shadow-sky-600/20';
         badgeClasses += 'bg-sky-400 text-slate-950';
         statusIcon = '<i class="fa-solid fa-circle-check text-sky-300 text-base"></i>';
@@ -340,16 +518,16 @@ function renderOptionButtons() {
     return `
       <button
         type="button"
-        data-lang-code="${lang.code}"
+        data-lang-code="${opt.code}"
         ${isRevealed ? 'disabled' : ''}
         class="${btnClasses}"
       >
         <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <span class="${badgeClasses}">${idx + 1}</span>
           <div class="min-w-0 flex-1 leading-tight">
-            <div class="option-lang-name font-bold truncate">${escapeHtml(translatedName)}</div>
+            <div class="option-lang-name font-bold truncate">${escapeHtml(primaryLabel)}</div>
             <div class="${showNativeNow ? 'visible opacity-100' : 'invisible opacity-0'} option-native-name text-slate-300/90 font-medium truncate leading-tight transition-opacity">
-              ${escapeHtml(lang.native)}
+              ${escapeHtml(opt.native)}
             </div>
           </div>
         </div>
@@ -376,9 +554,11 @@ function formatDisplayParagraph(text) {
 
 function displayQuestionOnScreen(questionData) {
   const dict = t();
-  const activeDiff = state.config.difficulty;
+  document.getElementById('textWikiCard').classList.remove('hidden');
+  document.getElementById('audioPlayerCard').classList.add('hidden');
+  document.getElementById('choosePromptText').textContent = dict.choosePromptText;
 
-  // Use the Hard Mode 100% Kanji variant for Japanese if hard difficulty is active and available
+  const activeDiff = state.config.difficulty;
   const rawParagraph = (activeDiff === 'hard' && questionData.hardParagraph)
     ? questionData.hardParagraph
     : questionData.paragraph;
@@ -389,6 +569,7 @@ function displayQuestionOnScreen(questionData) {
 
   state.currentQuestion = {
     ...questionData,
+    isAudio: false,
     optionsByDifficulty,
     paragraph: formattedParagraph,
     options: activeOptions
@@ -408,11 +589,36 @@ function displayQuestionOnScreen(questionData) {
   renderOptionButtons();
 }
 
+function displayAudioQuestionOnScreen(audioQuestion) {
+  const dict = t();
+  document.getElementById('textWikiCard').classList.add('hidden');
+  document.getElementById('audioPlayerCard').classList.remove('hidden');
+  document.getElementById('revealCardContainer').classList.add('hidden');
+
+  document.getElementById('choosePromptText').textContent =
+    state.config.audioTarget === 'country' ? dict.chooseAudioCountryPrompt : dict.chooseAudioLangPrompt;
+
+  state.currentQuestion = audioQuestion;
+  state.selectedCode = null;
+  state.status = 'playing';
+
+  updateHudUI();
+  renderOptionButtons();
+  syncVideoViewportVisibility();
+  loadBroadcasterIntoPlayer(audioQuestion.broadcaster);
+}
+
 async function loadNextRound() {
   state.status = 'loading';
   document.getElementById('revealCardContainer').classList.add('hidden');
   document.getElementById('optionsGrid').innerHTML = '';
   updateHudUI();
+
+  if (state.appMode === 'audio') {
+    const audioQ = generateAudioRoundQuestion();
+    displayAudioQuestionOnScreen(audioQ);
+    return;
+  }
 
   const usedInTenTries = state.config.mode === 'ten_tries'
     ? new Set(state.history.map(h => h.targetLang.code))
@@ -420,7 +626,6 @@ async function loadNextRound() {
 
   while (state.prefetchQueue.length > 0) {
     const nextPreloaded = state.prefetchQueue.shift();
-    // In 10 Tries mode, skip any preloaded article whose language was already played in this run
     if (usedInTenTries && usedInTenTries.has(nextPreloaded.targetLang.code)) {
       continue;
     }
@@ -449,6 +654,35 @@ function startNewGame() {
   loadNextRound();
 }
 
+/**
+ * Updates the Reveal Card for Audio Mode with the live YouTube Broadcast Title,
+ * Broadcaster Name, Country Flag, and direct "Open on YouTube" link.
+ */
+function updateAudioRevealDetailsUI() {
+  if (!state.currentQuestion || !state.currentQuestion.isAudio) return;
+  const dict = t();
+  const b = state.currentQuestion.broadcaster;
+  const vidTitle = audioEngine.currentVideoTitle || `${b.broadcaster} — Live News Broadcast`;
+  const vidId = audioEngine.currentVideoId;
+  const ytUrl = vidId
+    ? `https://www.youtube.com/watch?v=${vidId}&t=${audioEngine.currentStartSeconds}s`
+    : `https://www.youtube.com/channel/${b.channelId}`;
+
+  document.getElementById('revealArticleTitle').textContent = vidTitle;
+  document.getElementById('revealLangDetails').textContent = dict.revealAudioMeta(
+    b.broadcaster,
+    getLocalizedCountryName(b),
+    b.flag,
+    getLocalizedLanguageName(b),
+    b.langNative
+  );
+
+  const linkEl = document.getElementById('revealWikiLink');
+  linkEl.href = ytUrl;
+  document.getElementById('revealExternalLinkIcon').className = 'fa-brands fa-youtube text-rose-400';
+  document.getElementById('revealReadArticleText').textContent = dict.revealWatchYoutubeText;
+}
+
 function updateRevealCardUI() {
   if (!state.currentQuestion || state.status !== 'revealed') return;
   const dict = t();
@@ -464,17 +698,22 @@ function updateRevealCardUI() {
     banner.innerHTML = `<i class="fa-solid fa-xmark"></i> <span>${escapeHtml(dict.revealWrong)}</span>`;
   }
 
-  document.getElementById('revealArticleTitle').textContent = state.currentQuestion.articleTitle;
-  document.getElementById('revealLangDetails').textContent = dict.revealLangMeta(
-    getLocalizedLanguageName(target),
-    target.native,
-    target.script,
-    target.family
-  );
+  if (state.currentQuestion.isAudio) {
+    updateAudioRevealDetailsUI();
+  } else {
+    document.getElementById('revealArticleTitle').textContent = state.currentQuestion.articleTitle;
+    document.getElementById('revealLangDetails').textContent = dict.revealLangMeta(
+      getLocalizedLanguageName(target),
+      target.native,
+      target.script,
+      target.family
+    );
 
-  const wikiLink = document.getElementById('revealWikiLink');
-  wikiLink.href = state.currentQuestion.articleUrl;
-  document.getElementById('revealReadArticleText').textContent = dict.revealReadArticleText;
+    const wikiLink = document.getElementById('revealWikiLink');
+    wikiLink.href = state.currentQuestion.articleUrl;
+    document.getElementById('revealExternalLinkIcon').className = 'fa-brands fa-wikipedia-w';
+    document.getElementById('revealReadArticleText').textContent = dict.revealReadArticleText;
+  }
 
   const isTenFinished = state.config.mode === 'ten_tries' && state.round >= state.maxRounds;
   const isEndlessOver = isEndlessMode() && state.lives <= 0;
@@ -497,7 +736,7 @@ function handleOptionSelect(chosenCode) {
   state.selectedCode = chosenCode;
 
   const target = state.currentQuestion.targetLang;
-  const chosenLang = state.currentQuestion.options.find(o => o.code === chosenCode) || target;
+  const chosenOpt = state.currentQuestion.options.find(o => o.code === chosenCode) || target;
   const isCorrect = chosenCode === target.code;
 
   if (isCorrect) {
@@ -511,19 +750,41 @@ function handleOptionSelect(chosenCode) {
     }
   }
 
-  state.history.push({
-    round: state.round,
-    targetLang: target,
-    chosenLang,
-    isCorrect,
-    articleTitle: state.currentQuestion.articleTitle,
-    articleUrl: state.currentQuestion.articleUrl
-  });
+  if (state.currentQuestion.isAudio) {
+    // Reveal the actual un-blurred YouTube video immediately upon answering!
+    syncVideoViewportVisibility();
+    const b = state.currentQuestion.broadcaster;
+    const vidId = audioEngine.currentVideoId;
+    const ytUrl = vidId
+      ? `https://www.youtube.com/watch?v=${vidId}&t=${audioEngine.currentStartSeconds}s`
+      : `https://www.youtube.com/channel/${b.channelId}`;
+
+    state.history.push({
+      round: state.round,
+      isAudio: true,
+      targetKey: state.currentQuestion.targetKey,
+      targetLang: target,
+      chosenLang: { code: chosenOpt.code, name: chosenOpt.label || chosenOpt.name, native: chosenOpt.native },
+      isCorrect,
+      articleTitle: audioEngine.currentVideoTitle || b.broadcaster,
+      articleUrl: ytUrl
+    });
+  } else {
+    state.history.push({
+      round: state.round,
+      isAudio: false,
+      targetLang: target,
+      chosenLang: chosenOpt,
+      isCorrect,
+      articleTitle: state.currentQuestion.articleTitle,
+      articleUrl: state.currentQuestion.articleUrl
+    });
+    ensurePrefetchQueue();
+  }
 
   updateHudUI();
   renderOptionButtons();
   updateRevealCardUI();
-  ensurePrefetchQueue();
 }
 
 function handleNextAction() {
@@ -532,6 +793,7 @@ function handleNextAction() {
   const isEndlessOver = isEndlessMode() && state.lives <= 0;
 
   if (isTenFinished || isEndlessOver) {
+    stopAudioPlayback();
     renderSummaryScreen();
   } else {
     state.round++;
@@ -577,8 +839,9 @@ function renderSummaryScreen() {
       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
       : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
     const icon = item.isCorrect ? 'fa-check' : 'fa-xmark';
-    const targetName = getLocalizedLanguageName(item.targetLang);
-    const chosenName = getLocalizedLanguageName(item.chosenLang);
+    const targetName = item.isAudio ? item.targetLang.name : getLocalizedLanguageName(item.targetLang);
+    const chosenName = item.isAudio ? item.chosenLang.name : getLocalizedLanguageName(item.chosenLang);
+    const linkIcon = item.isAudio ? 'fa-brands fa-youtube text-rose-400' : 'fa-brands fa-wikipedia-w';
 
     return `
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs sm:text-sm">
@@ -589,7 +852,7 @@ function renderSummaryScreen() {
           <div>
             <div class="font-bold text-white">
               ${escapeHtml(dict.historyRound(item.round))}: ${escapeHtml(targetName)}
-              <span class="text-slate-400 font-normal">(${escapeHtml(item.targetLang.native)} • ${escapeHtml(item.targetLang.script)})</span>
+              <span class="text-slate-400 font-normal">(${escapeHtml(item.targetLang.native)})</span>
             </div>
             <div class="text-xs text-slate-400">
               ${item.isCorrect
@@ -600,7 +863,7 @@ function renderSummaryScreen() {
           </div>
         </div>
         <a href="${item.articleUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0">
-          <i class="fa-brands fa-wikipedia-w"></i>
+          <i class="${linkIcon}"></i>
           <span class="truncate max-w-[180px]">${escapeHtml(item.articleTitle)}</span>
           <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
         </a>
@@ -617,21 +880,26 @@ function setUiLanguage(langCode) {
   document.querySelectorAll('.ui-lang-btn').forEach(btn => {
     const active = btn.getAttribute('data-ui-lang') === langCode;
     btn.className = active
-      ? 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
-      : 'ui-lang-btn px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
+      ? 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-indigo-600 text-white shadow'
+      : 'ui-lang-btn px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition';
   });
 
   const dict = t();
   const mapIds = [
-    'headerTitle', 'headerSubtitle', 'setupHeading', 'setupSubheading',
+    'headerTitle', 'headerSubtitle', 'modeSwitchText', 'modeSwitchAudio',
+    'hubHeading', 'hubSubheading', 'hubTextTitle', 'hubTextBadge', 'hubTextDesc',
+    'hubAudioTitle', 'hubAudioBadge', 'hubAudioDesc',
+    'setupHeading', 'setupSubheading', 'audioSetupHeading', 'audioSetupSubheading',
+    'labelAudioTarget', 'targetLangTitle', 'targetLangDesc', 'targetCountryTitle', 'targetCountryDesc',
     'labelGameMode', 'modeTenTitle', 'modeTenDesc', 'modeEndless3Title', 'modeEndless3Desc',
     'modeEndless1Title', 'modeEndless1Desc', 'labelLangPool', 'poolStableTitle', 'poolStableDesc',
     'poolExpTitle', 'poolExpDesc', 'poolCustomTitle', 'poolCustomDesc',
     'labelDifficulty', 'diffEasyTitle', 'diffEasyDesc', 'diffMedTitle', 'diffMedDesc',
-    'diffHardTitle', 'diffHardDesc', 'startGameBtnText', 'snippetHeaderBadge',
-    'scannerStatusTitle', 'scannerStatusSub', 'choosePromptText', 'keyboardHintText',
+    'diffHardTitle', 'diffHardDesc', 'startGameBtnText', 'snippetHeaderBadge', 'audioHeaderBadge',
+    'audioWaveHint', 'scannerStatusTitle', 'scannerStatusSub', 'keyboardHintText',
     'sumScoreLabel', 'sumAccLabel', 'sumRoundsLabel', 'sumStreakLabel', 'sumHistoryHeading',
-    'sumChangeSettingsText', 'sumPlayAgainText', 'nativeToggleTitle', 'nativeToggleSub',
+    'sumChangeSettingsText', 'sumPlayAgainText', 'videoToggleTitle', 'videoToggleSub',
+    'nativeToggleTitle', 'nativeToggleSub',
     'modalTitle', 'modalSubtitle', 'catEuroTitle', 'catEuroDesc', 'catAsianTitle', 'catAsianDesc',
     'catAfricanTitle', 'catAfricanDesc', 'catAustroTitle', 'catAustroDesc', 'catIndigTitle', 'catIndigDesc',
     'categoryWarningText'
@@ -641,23 +909,68 @@ function setUiLanguage(langCode) {
     if (el && typeof dict[id] === 'string') el.textContent = dict[id];
   });
 
+  // Mirror shared labels onto Audio Setup Screen
+  document.getElementById('audioLabelGameMode').textContent = dict.labelGameMode;
+  document.getElementById('audioModeTenTitle').textContent = dict.modeTenTitle;
+  document.getElementById('audioModeTenDesc').textContent = dict.modeTenDesc;
+  document.getElementById('audioModeEndless3Title').textContent = dict.modeEndless3Title;
+  document.getElementById('audioModeEndless3Desc').textContent = dict.modeEndless3Desc;
+  document.getElementById('audioModeEndless1Title').textContent = dict.modeEndless1Title;
+  document.getElementById('audioModeEndless1Desc').textContent = dict.modeEndless1Desc;
+  document.getElementById('audioLabelDifficulty').textContent = dict.labelDifficulty;
+  document.getElementById('audioDiffEasyTitle').textContent = dict.diffEasyTitle;
+  document.getElementById('audioDiffEasyDesc').textContent = dict.diffEasyDesc;
+  document.getElementById('audioDiffMedTitle').textContent = dict.diffMedTitle;
+  document.getElementById('audioDiffMedDesc').textContent = dict.diffMedDesc;
+  document.getElementById('audioDiffHardTitle').textContent = dict.diffHardTitle;
+  document.getElementById('audioDiffHardDesc').textContent = dict.diffHardDesc;
+  document.getElementById('startAudioGameBtnText').textContent = dict.startGameBtnText;
+  document.getElementById('audioSkipBtnText').textContent = dict.audioSkipBtn;
+  document.getElementById('audioBlurredBadgeText').textContent = dict.audioBlurredBadge;
+
   document.getElementById('selectAllCategoriesBtn').textContent = dict.selectAllText;
   document.getElementById('resetCategoriesBtn').textContent = dict.resetText;
   document.getElementById('applyCustomModalBtn').textContent = dict.doneText;
 
+  updateVideoToggleUI();
   updateNativeToggleUI();
   updateConfigCardsUI();
   updatePrefetchBadgesUI();
   updateHudUI();
+  updateAudioControlsUI();
 
   if (state.currentQuestion) {
-    document.getElementById('charCountBadge').textContent = dict.charsUnit(state.currentQuestion.paragraph.length);
+    if (!state.currentQuestion.isAudio) {
+      document.getElementById('charCountBadge').textContent = dict.charsUnit(state.currentQuestion.paragraph.length);
+      document.getElementById('choosePromptText').textContent = dict.choosePromptText;
+    } else {
+      document.getElementById('choosePromptText').textContent =
+        state.config.audioTarget === 'country' ? dict.chooseAudioCountryPrompt : dict.chooseAudioLangPrompt;
+      // Refresh localized labels on audio options
+      state.currentQuestion.options.forEach(opt => {
+        if (opt.rawCountry) {
+          opt.label = `${opt.rawCountry.flag} ${getLocalizedCountryName(opt.rawCountry)}`;
+        }
+      });
+    }
     renderOptionButtons();
     if (state.status === 'revealed') updateRevealCardUI();
   }
   if (state.status === 'gameover') {
     renderSummaryScreen();
   }
+}
+
+function updateVideoToggleUI() {
+  const dict = t();
+  const labelEl = document.getElementById('videoToggleStateText');
+  if (!labelEl) return;
+  labelEl.textContent = state.config.showBlurredVideo ? dict.videoStateOn : dict.videoStateOff;
+  labelEl.className = state.config.showBlurredVideo
+    ? 'text-xs font-bold text-sky-400'
+    : 'text-xs font-semibold text-slate-400';
+
+  syncVideoViewportVisibility();
 }
 
 function updateNativeToggleUI() {
@@ -703,6 +1016,17 @@ document.querySelectorAll('.ui-lang-btn').forEach(btn => {
   btn.addEventListener('click', () => setUiLanguage(btn.getAttribute('data-ui-lang')));
 });
 
+// Mode Hub & Header Switchers
+document.getElementById('chooseTextModeCard').addEventListener('click', () => switchAppMode('text'));
+document.getElementById('chooseAudioModeCard').addEventListener('click', () => switchAppMode('audio'));
+document.getElementById('headerModeTextBtn').addEventListener('click', () => switchAppMode('text'));
+document.getElementById('headerModeAudioBtn').addEventListener('click', () => switchAppMode('audio'));
+document.getElementById('brandHomeBtn').addEventListener('click', () => {
+  stopAudioPlayback();
+  state.status = 'hub';
+  showScreen('hub');
+});
+
 document.querySelectorAll('.config-card').forEach(card => {
   card.addEventListener('click', () => {
     const group = card.getAttribute('data-config-group');
@@ -712,7 +1036,6 @@ document.querySelectorAll('.config-card').forEach(card => {
     const prevVal = state.config[group];
     state.config[group] = val;
 
-    // Only reset the preloaded articles when selecting a different Language Pool
     if (group === 'pool') {
       if (prevVal !== val) {
         state.prefetchEpoch++;
@@ -775,23 +1098,52 @@ document.getElementById('resetCategoriesBtn').addEventListener('click', () => {
   updateConfigCardsUI();
 });
 
+document.getElementById('showBlurredVideoToggle').addEventListener('change', (e) => {
+  state.config.showBlurredVideo = e.target.checked;
+  updateVideoToggleUI();
+});
+
 document.getElementById('alwaysShowNativeToggle').addEventListener('change', (e) => {
   state.config.alwaysShowNative = e.target.checked;
   updateNativeToggleUI();
 });
 
+// Audio Player Control Buttons
+document.getElementById('audioPlayPauseBtn').addEventListener('click', toggleAudioPlayPause);
+document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioForward15s);
+document.getElementById('audioNewClipBtn').addEventListener('click', () => {
+  if (audioEngine.currentBroadcaster) {
+    triggerBroadcasterFallback();
+  }
+});
+document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
+
 document.getElementById('startGameBtn').addEventListener('click', startNewGame);
+document.getElementById('startAudioGameBtn').addEventListener('click', startNewGame);
 document.getElementById('nextRoundBtn').addEventListener('click', handleNextAction);
+
 document.getElementById('openSettingsBtn').addEventListener('click', () => {
+  stopAudioPlayback();
   state.status = 'setup';
-  showScreen('setup');
-  ensurePrefetchQueue();
+  if (state.appMode === 'audio') {
+    showScreen('audio_setup');
+  } else {
+    showScreen('setup');
+    ensurePrefetchQueue();
+  }
 });
+
 document.getElementById('summaryChangeSettingsBtn').addEventListener('click', () => {
+  stopAudioPlayback();
   state.status = 'setup';
-  showScreen('setup');
-  ensurePrefetchQueue();
+  if (state.appMode === 'audio') {
+    showScreen('audio_setup');
+  } else {
+    showScreen('setup');
+    ensurePrefetchQueue();
+  }
 });
+
 document.getElementById('summaryPlayAgainBtn').addEventListener('click', startNewGame);
 
 window.addEventListener('keydown', (e) => {
@@ -810,6 +1162,6 @@ window.addEventListener('keydown', (e) => {
 
 window.onload = function () {
   setUiLanguage(state.config.uiLang);
-  showScreen('setup');
-  ensurePrefetchQueue();
+  showScreen('hub'); // Start at the Text vs Audio chooser screen
+  ensurePrefetchQueue(); // Warm up Wikipedia articles in the background immediately
 };
