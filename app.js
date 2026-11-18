@@ -32,6 +32,7 @@ const state = {
     customCategories: new Set(['european', 'asian']),
     audioLangCategories: new Set(DEFAULT_AUDIO_LANG_LEAVES),
     audioTerritories: new Set(DEFAULT_AUDIO_TERR_LEAVES),
+    audioTerritoryPreset: null, // null | 'iberian' | 'anglosphere'
     crossContinentTrap: true,
     alwaysShowNative: false,
     showBlurredVideo: false,
@@ -229,6 +230,21 @@ function getActiveAudioBroadcastersForLangMode() {
 }
 
 function getActiveAudioBroadcastersForCountryMode() {
+  const preset = state.config.audioTerritoryPreset;
+  if (preset === 'iberian') {
+    const iberianList = TV_NEWS_BROADCASTERS.filter(
+      b => b.langCode === 'es' || b.langCode === 'pt'
+    );
+    return iberianList.length > 0 ? iberianList : TV_NEWS_BROADCASTERS;
+  }
+  if (preset === 'anglosphere') {
+    const anglosphereCodes = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ']);
+    const angloList = TV_NEWS_BROADCASTERS.filter(
+      b => anglosphereCodes.has(b.countryCode) && b.langCode === 'en'
+    );
+    return angloList.length > 0 ? angloList : TV_NEWS_BROADCASTERS;
+  }
+
   const activeTerr = state.config.audioTerritories;
   const directBroadcasters = TV_NEWS_BROADCASTERS.filter(b => activeTerr.has(b.territory));
   const baseList = directBroadcasters.length > 0 ? directBroadcasters : TV_NEWS_BROADCASTERS;
@@ -673,43 +689,29 @@ function updateAudioTreeCountsAndBadges() {
     trapCheckbox.checked = Boolean(state.config.crossContinentTrap);
   }
 
+  // Sync Territory Preset Buttons ('iberian' | 'anglosphere')
+  const activePreset = state.config.audioTerritoryPreset;
+  document.querySelectorAll('.terr-preset-btn').forEach(btn => {
+    const isThisPreset = btn.getAttribute('data-terr-preset') === activePreset;
+    if (isThisPreset) {
+      btn.classList.add('border-emerald-500', 'bg-emerald-950/35', 'ring-1', 'ring-emerald-500');
+      btn.classList.remove('border-slate-800', 'bg-slate-950/75');
+    } else {
+      btn.classList.remove('border-emerald-500', 'bg-emerald-950/35', 'ring-1', 'ring-emerald-500');
+      btn.classList.add('border-slate-800', 'bg-slate-950/75');
+    }
+  });
+
   const activeTerrPool = getActiveAudioBroadcastersForCountryMode();
   const activeUniqueCountryCount = new Set(activeTerrPool.map(b => b.countryCode)).size;
   const terrTreeBadge = document.getElementById('audioTerrTreeBadge');
   if (terrTreeBadge) {
-    terrTreeBadge.textContent = `${activeUniqueCountryCount} countries${state.config.crossContinentTrap ? ' • Trap' : ''}`;
-  }
-}
-
-function updateVideoToggleUI() {
-  const dict = t();
-  const checkbox = document.getElementById('showBlurredVideoToggle');
-  const labelText = document.getElementById('videoToggleStateText');
-  const switchTrack = document.getElementById('videoToggleSwitchTrack');
-  const mode = state.config.videoDisplayMode || 'off';
-
-  if (checkbox) {
-    checkbox.checked = mode !== 'off';
-  }
-  if (labelText) {
-    if (mode === 'clear') {
-      labelText.textContent = dict.videoStateClear || 'Remove Blur 🔓';
-      labelText.className = 'text-xs font-bold text-amber-400';
-    } else if (mode === 'blurred') {
-      labelText.textContent = dict.videoStateOn;
-      labelText.className = 'text-xs font-semibold text-sky-400';
+    if (activePreset === 'iberian') {
+      terrTreeBadge.textContent = `${t().presetIberianTitle} (${activeUniqueCountryCount})`;
+    } else if (activePreset === 'anglosphere') {
+      terrTreeBadge.textContent = `${t().presetAnglosphereTitle} (${activeUniqueCountryCount})`;
     } else {
-      labelText.textContent = dict.videoStateOff;
-      labelText.className = 'text-xs font-semibold text-slate-400';
-    }
-  }
-  if (switchTrack) {
-    if (mode === 'clear') {
-      switchTrack.classList.remove('peer-checked:bg-sky-600');
-      switchTrack.classList.add('peer-checked:bg-amber-500');
-    } else {
-      switchTrack.classList.remove('peer-checked:bg-amber-500');
-      switchTrack.classList.add('peer-checked:bg-sky-600');
+      terrTreeBadge.textContent = `${activeUniqueCountryCount} countries${state.config.crossContinentTrap ? ' • Trap' : ''}`;
     }
   }
 }
@@ -737,7 +739,8 @@ function applyTranslations() {
     'catAfricanTitle', 'catAfricanDesc', 'catAustroTitle', 'catAustroDesc', 'catIndigTitle', 'catIndigDesc',
     'categoryWarningText',
     'audioLangModalTitle', 'audioLangModalSub', 'audioTerrModalTitle', 'audioTerrModalSub',
-    'trapToggleTitle', 'trapToggleDesc'
+    'trapToggleTitle', 'trapToggleDesc',
+    'presetIberianTitle', 'presetIberianSub', 'presetAnglosphereTitle', 'presetAnglosphereSub'
   ];
 
   textIds.forEach(id => {
@@ -1490,8 +1493,28 @@ document.getElementById('audioTerritoryTreeModal').addEventListener('click', (e)
 });
 
 document.getElementById('crossContinentTrapToggle').addEventListener('change', (e) => {
+  state.config.audioTerritoryPreset = null;
   state.config.crossContinentTrap = e.target.checked;
   updateAudioTreeCountsAndBadges();
+});
+
+document.querySelectorAll('.terr-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const presetKey = btn.getAttribute('data-terr-preset');
+    const warn = document.getElementById('audioTerrWarningMsg');
+    if (warn) warn.classList.add('hidden');
+
+    if (state.config.audioTerritoryPreset === presetKey) {
+      // Clicking an active preset toggles it off and restores default territories
+      state.config.audioTerritoryPreset = null;
+      state.config.audioTerritories = new Set(DEFAULT_AUDIO_TERR_LEAVES);
+    } else {
+      state.config.audioTerritoryPreset = presetKey;
+      // Uncheck all continental tree checkboxes while the preset overrides the pool
+      state.config.audioTerritories = new Set();
+    }
+    updateAudioTreeCountsAndBadges();
+  });
 });
 
 document.querySelectorAll('.audio-terr-parent').forEach(parentCb => {
@@ -1499,6 +1522,9 @@ document.querySelectorAll('.audio-terr-parent').forEach(parentCb => {
     const parentKey = parentCb.getAttribute('data-parent');
     const children = Array.from(document.querySelectorAll(`.audio-terr-leaf[data-parent="${parentKey}"]`));
     const warn = document.getElementById('audioTerrWarningMsg');
+
+    // Manually interacting with the tree clears any active preset highlight
+    state.config.audioTerritoryPreset = null;
 
     if (parentCb.checked) {
       children.forEach(c => state.config.audioTerritories.add(c.value));
@@ -1522,6 +1548,10 @@ document.querySelectorAll('.audio-terr-parent').forEach(parentCb => {
 document.querySelectorAll('.audio-terr-leaf').forEach(leafCb => {
   leafCb.addEventListener('change', () => {
     const warn = document.getElementById('audioTerrWarningMsg');
+
+    // Manually interacting with the tree clears any active preset highlight
+    state.config.audioTerritoryPreset = null;
+
     if (leafCb.checked) {
       state.config.audioTerritories.add(leafCb.value);
       warn.classList.add('hidden');
@@ -1539,12 +1569,14 @@ document.querySelectorAll('.audio-terr-leaf').forEach(leafCb => {
 });
 
 document.getElementById('selectAllAudioTerrBtn').addEventListener('click', () => {
+  state.config.audioTerritoryPreset = null;
   ALL_AUDIO_TERR_LEAVES.forEach(v => state.config.audioTerritories.add(v));
   document.getElementById('audioTerrWarningMsg').classList.add('hidden');
   updateAudioTreeCountsAndBadges();
 });
 
 document.getElementById('resetAudioTerrBtn').addEventListener('click', () => {
+  state.config.audioTerritoryPreset = null;
   state.config.audioTerritories = new Set(DEFAULT_AUDIO_TERR_LEAVES);
   state.config.crossContinentTrap = true;
   document.getElementById('audioTerrWarningMsg').classList.add('hidden');
