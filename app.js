@@ -20,6 +20,8 @@ const ALL_AUDIO_TERR_LEAVES = [
   'afwa_subsaharan', 'afwa_mena_caucasus'
 ];
 
+const ANGLOSPHERE_COUNTRY_CODES = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ']);
+
 const state = {
   appMode: 'text', // 'text' (Wikipedia) | 'audio' (TV News)
   status: 'hub',   // 'hub' | 'setup' | 'playing' | 'revealed' | 'gameover'
@@ -52,7 +54,8 @@ const state = {
   prefetchQueue: [],
   prefetchTargetSize: 5,
   prefetchInFlight: false,
-  prefetchEpoch: 0
+  prefetchEpoch: 0,
+  textLoadRequestId: 0
 };
 
 /**
@@ -238,9 +241,8 @@ function getActiveAudioBroadcastersForCountryMode() {
     return iberianList.length > 0 ? iberianList : TV_NEWS_BROADCASTERS;
   }
   if (preset === 'anglosphere') {
-    const anglosphereCodes = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ']);
     const angloList = TV_NEWS_BROADCASTERS.filter(
-      b => anglosphereCodes.has(b.countryCode) && b.langCode === 'en'
+      b => ANGLOSPHERE_COUNTRY_CODES.has(b.countryCode) && b.langCode === 'en'
     );
     return angloList.length > 0 ? angloList : TV_NEWS_BROADCASTERS;
   }
@@ -278,9 +280,20 @@ function generateAudioRoundQuestion() {
   const diff = state.config.difficulty;
 
   // Pool of broadcasters filtered by the user's Audio Language Tree or Territory Tree (+ Trap)
-  const activePool = isCountryTarget
+  const rawActivePool = isCountryTarget
     ? getActiveAudioBroadcastersForCountryMode()
     : getActiveAudioBroadcastersForLangMode();
+
+  // Exclude broadcasters whose clips have all failed during this session
+  const healthyPool = rawActivePool.filter(b => {
+    if (audioEngine.failedBroadcasterIds && audioEngine.failedBroadcasterIds.has(b.id)) {
+      return false;
+    }
+    return typeof getAvailableClipsForBroadcaster === 'function'
+      ? getAvailableClipsForBroadcaster(b).length > 0
+      : true;
+  });
+  const activePool = healthyPool.length > 0 ? healthyPool : rawActivePool;
 
   const usedKeys = new Set();
   const blockedSpokenLangs = new Set();
@@ -311,24 +324,42 @@ function generateAudioRoundQuestion() {
   }
   const poolToPick = eligibleBroadcasters.length > 0 ? eligibleBroadcasters : activePool;
 
-  // Weight target selection by unique language first so multi-country languages
-  // don't appear overwhelmingly often.
-  const byLanguageMap = new Map();
-  poolToPick.forEach(b => {
-    if (!byLanguageMap.has(b.langCode)) {
-      byLanguageMap.set(b.langCode, []);
-    }
-    byLanguageMap.get(b.langCode).push(b);
-  });
-  const candidateLangCodes = Array.from(byLanguageMap.keys());
-  const chosenLangCode = candidateLangCodes[Math.floor(Math.random() * candidateLangCodes.length)];
-  const broadcastersForLang = byLanguageMap.get(chosenLangCode);
-  const targetBroadcaster = broadcastersForLang[Math.floor(Math.random() * broadcastersForLang.length)];
+  // Uniform target weighting:
+  // - In Country Mode, group by unique `countryCode` first so multi-language countries
+  //   (Spain, Switzerland, Canada, Belgium, UK, Ireland, Indonesia) get equal odds.
+  // - In Language Mode, group by unique `langCode` first so multi-country languages
+  //   (Spanish, English, Portuguese) don't dominate.
+  let targetBroadcaster = null;
+  if (isCountryTarget) {
+    const byCountryMap = new Map();
+    poolToPick.forEach(b => {
+      if (!byCountryMap.has(b.countryCode)) {
+        byCountryMap.set(b.countryCode, []);
+      }
+      byCountryMap.get(b.countryCode).push(b);
+    });
+    const candidateCountries = Array.from(byCountryMap.keys());
+    const chosenCountryCode = candidateCountries[Math.floor(Math.random() * candidateCountries.length)];
+    const broadcastersForCountry = byCountryMap.get(chosenCountryCode);
+    targetBroadcaster = broadcastersForCountry[Math.floor(Math.random() * broadcastersForCountry.length)];
+  } else {
+    const byLanguageMap = new Map();
+    poolToPick.forEach(b => {
+      if (!byLanguageMap.has(b.langCode)) {
+        byLanguageMap.set(b.langCode, []);
+      }
+      byLanguageMap.get(b.langCode).push(b);
+    });
+    const candidateLangCodes = Array.from(byLanguageMap.keys());
+    const chosenLangCode = candidateLangCodes[Math.floor(Math.random() * candidateLangCodes.length)];
+    const broadcastersForLang = byLanguageMap.get(chosenLangCode);
+    targetBroadcaster = broadcastersForLang[Math.floor(Math.random() * broadcastersForLang.length)];
+  }
 
   if (!isCountryTarget) {
     // GUESS THE LANGUAGE IN AUDIO MODE
     const uniqueLangMap = new Map();
-    activePool.forEach(b => {
+    rawActivePool.forEach(b => {
       if (!uniqueLangMap.has(b.langCode)) {
         uniqueLangMap.set(b.langCode, {
           code: b.langCode,
@@ -402,7 +433,7 @@ function generateAudioRoundQuestion() {
     // GUESS THE COUNTRY IN AUDIO MODE
     const countryLangSetMap = new Map();
     const uniqueCountries = new Map();
-    activePool.forEach(b => {
+    rawActivePool.forEach(b => {
       if (!countryLangSetMap.has(b.countryCode)) {
         countryLangSetMap.set(b.countryCode, new Set());
       }
@@ -463,7 +494,7 @@ function generateAudioRoundQuestion() {
     const options = shuffleArray([targetBroadcaster, ...distractors.slice(0, 3)]).map(c => ({
       code: c.countryCode,
       label: `${c.flag} ${getLocalizedCountryName(c)}`,
-      native: c.countryNative,
+      native: typeof getCanonicalCountryNative === 'function' ? getCanonicalCountryNative(c) : c.countryNative,
       rawCountry: c
     }));
 
@@ -476,7 +507,9 @@ function generateAudioRoundQuestion() {
       targetLang: {
         code: targetBroadcaster.countryCode,
         name: `${targetBroadcaster.flag} ${getLocalizedCountryName(targetBroadcaster)}`,
-        native: targetBroadcaster.countryNative,
+        native: typeof getCanonicalCountryNative === 'function'
+          ? getCanonicalCountryNative(targetBroadcaster)
+          : targetBroadcaster.countryNative,
         script: targetBroadcaster.langName,
         family: targetBroadcaster.region
       },
@@ -548,6 +581,7 @@ function updateHeaderModeSwitcherUI() {
 
 function switchAppMode(targetMode) {
   if (targetMode !== 'text' && targetMode !== 'audio') return;
+  state.textLoadRequestId++;
   stopAudioPlayback();
   state.appMode = targetMode;
   state.status = 'setup';
@@ -590,6 +624,16 @@ function updateCategoryCountsAndBadges() {
   document.getElementById('catCountAustro').textContent = counts.austronesian;
   document.getElementById('catCountIndig').textContent = counts.indigenous;
 
+  // Dynamic Wikipedia Stable & Experimental Pool Badges
+  const stableBadge = document.getElementById('poolStableCountBadge');
+  const expBadge = document.getElementById('poolExpCountBadge');
+  if (stableBadge) {
+    stableBadge.textContent = WIKI_LANGUAGES.filter(l => l.pool === 'stable').length;
+  }
+  if (expBadge) {
+    expBadge.textContent = WIKI_LANGUAGES.length;
+  }
+
   const customTotal = WIKI_LANGUAGES.filter(l => l.cats.some(c => state.config.customCategories.has(c))).length;
   document.getElementById('customPoolBadge').textContent = dict.customBadgeText(state.config.customCategories.size, customTotal);
 
@@ -599,7 +643,9 @@ function updateCategoryCountsAndBadges() {
 
   const tvCountBadge = document.getElementById('tvChannelCountBadge');
   if (tvCountBadge && typeof TV_NEWS_BROADCASTERS !== 'undefined') {
-    tvCountBadge.textContent = `${TV_NEWS_BROADCASTERS.length} TV Channels`;
+    tvCountBadge.textContent = typeof dict.tvChannelCountBadge === 'function'
+      ? dict.tvChannelCountBadge(TV_NEWS_BROADCASTERS.length)
+      : `${TV_NEWS_BROADCASTERS.length} TV Channels`;
   }
 
   updateAudioTreeCountsAndBadges();
@@ -611,6 +657,7 @@ function updateCategoryCountsAndBadges() {
  */
 function updateAudioTreeCountsAndBadges() {
   if (typeof TV_NEWS_BROADCASTERS === 'undefined') return;
+  const dict = t();
 
   // 1. Audio Language Tree Counts & Checkboxes
   const langLeafCounts = {};
@@ -650,7 +697,9 @@ function updateAudioTreeCountsAndBadges() {
   const activeUniqueLangCount = new Set(activeLangPool.map(b => b.langCode)).size;
   const langTreeBadge = document.getElementById('audioLangTreeBadge');
   if (langTreeBadge) {
-    langTreeBadge.textContent = `${state.config.audioLangCategories.size} groups • ${activeUniqueLangCount} langs`;
+    langTreeBadge.textContent = typeof dict.audioLangBadgeText === 'function'
+      ? dict.audioLangBadgeText(state.config.audioLangCategories.size, activeUniqueLangCount)
+      : `${state.config.audioLangCategories.size} groups • ${activeUniqueLangCount} langs`;
   }
 
   // 2. Audio Territory Tree Counts & Checkboxes
@@ -672,6 +721,20 @@ function updateAudioTreeCountsAndBadges() {
   if (tEu) tEu.textContent = (terrLeafCounts.eu_west || 0) + (terrLeafCounts.eu_north || 0) + (terrLeafCounts.eu_east_balkan || 0);
   if (tAo) tAo.textContent = (terrLeafCounts.ao_east_asia || 0) + (terrLeafCounts.ao_se_asia || 0) + (terrLeafCounts.ao_south_asia || 0) + (terrLeafCounts.ao_oceania || 0);
   if (tAf) tAf.textContent = (terrLeafCounts.afwa_subsaharan || 0) + (terrLeafCounts.afwa_mena_caucasus || 0);
+
+  // Dynamic Territory Preset Counts
+  const iberianBadge = document.getElementById('presetIberianCountBadge');
+  const angloBadge = document.getElementById('presetAnglosphereCountBadge');
+  if (iberianBadge) {
+    iberianBadge.textContent = new Set(
+      TV_NEWS_BROADCASTERS.filter(b => b.langCode === 'es' || b.langCode === 'pt').map(b => b.countryCode)
+    ).size;
+  }
+  if (angloBadge) {
+    angloBadge.textContent = new Set(
+      TV_NEWS_BROADCASTERS.filter(b => ANGLOSPHERE_COUNTRY_CODES.has(b.countryCode) && b.langCode === 'en').map(b => b.countryCode)
+    ).size;
+  }
 
   document.querySelectorAll('.audio-terr-leaf').forEach(cb => {
     cb.checked = state.config.audioTerritories.has(cb.value);
@@ -707,21 +770,26 @@ function updateAudioTreeCountsAndBadges() {
   const terrTreeBadge = document.getElementById('audioTerrTreeBadge');
   if (terrTreeBadge) {
     if (activePreset === 'iberian') {
-      terrTreeBadge.textContent = `${t().presetIberianTitle} (${activeUniqueCountryCount})`;
+      terrTreeBadge.textContent = `${dict.presetIberianTitle} (${activeUniqueCountryCount})`;
     } else if (activePreset === 'anglosphere') {
-      terrTreeBadge.textContent = `${t().presetAnglosphereTitle} (${activeUniqueCountryCount})`;
+      terrTreeBadge.textContent = `${dict.presetAnglosphereTitle} (${activeUniqueCountryCount})`;
     } else {
-      terrTreeBadge.textContent = `${activeUniqueCountryCount} countries${state.config.crossContinentTrap ? ' • Trap' : ''}`;
+      terrTreeBadge.textContent = typeof dict.audioTerrBadgeText === 'function'
+        ? dict.audioTerrBadgeText(activeUniqueCountryCount, state.config.crossContinentTrap)
+        : `${activeUniqueCountryCount} countries${state.config.crossContinentTrap ? ' • Trap' : ''}`;
     }
   }
 }
 
 function applyTranslations() {
   const dict = t();
+  document.documentElement.lang = state.config.uiLang;
+
   const textIds = [
     'headerTitle', 'headerSubtitle', 'modeSwitchText', 'modeSwitchAudio',
-    'hubHeading', 'hubSubheading', 'hubTextTitle', 'hubTextBadge', 'hubTextDesc',
-    'hubAudioTitle', 'hubAudioBadge', 'hubAudioDesc',
+    'hubHeading', 'hubSubheading',
+    'hubTextTitle', 'hubTextBadge', 'hubTextDesc', 'hubTextCta',
+    'hubAudioTitle', 'hubAudioBadge', 'hubAudioDesc', 'hubAudioCta',
     'setupHeading', 'setupSubheading', 'audioSetupHeading', 'audioSetupSubheading',
     'labelGameMode', 'modeTenTitle', 'modeTenDesc', 'modeEndless3Title', 'modeEndless3Desc',
     'modeEndless1Title', 'modeEndless1Desc', 'labelLangPool', 'poolStableTitle', 'poolStableDesc',
@@ -731,16 +799,25 @@ function applyTranslations() {
     'diffHardTitle', 'diffHardDesc', 'startGameBtnText', 'startAudioGameBtnText',
     'hudRoundLabel', 'hudScoreLabel', 'hudStreakLabel', 'hudLivesLabel', 'hudSettingsBtnText',
     'snippetHeaderBadge', 'audioHeaderBadge', 'audioSkipBtnText', 'audioNewClipBtnText',
-    'audioWaveHint', 'scannerStatusTitle', 'scannerStatusSub',
+    'audioSkipBrokenBtnText', 'audioWaveHint', 'scannerStatusTitle', 'scannerStatusSub',
     'keyboardHintText', 'sumScoreLabel', 'sumAccLabel', 'sumRoundsLabel', 'sumStreakLabel',
     'sumHistoryHeading', 'sumChangeSettingsText', 'sumPlayAgainText',
     'videoToggleTitle', 'videoToggleSub', 'nativeToggleTitle', 'nativeToggleSub',
     'modalTitle', 'modalSubtitle', 'catEuroTitle', 'catEuroDesc', 'catAsianTitle', 'catAsianDesc',
     'catAfricanTitle', 'catAfricanDesc', 'catAustroTitle', 'catAustroDesc', 'catIndigTitle', 'catIndigDesc',
     'categoryWarningText',
-    'audioLangModalTitle', 'audioLangModalSub', 'audioTerrModalTitle', 'audioTerrModalSub',
+    'audioLangModalTitle', 'audioLangModalSub',
+    'audioLangBranchEuro', 'audioLangLeafRomance', 'audioLangLeafGermanic',
+    'audioLangLeafSlavic', 'audioLangLeafEuroOthers',
+    'audioLangBranchAsia', 'audioLangLeafAsiaEast', 'audioLangLeafAsiaSe', 'audioLangLeafAsiaSouth',
+    'audioLangBranchAfwa', 'audioLangLeafAfwaOther', 'audioLangWarningText',
+    'audioTerrModalTitle', 'audioTerrModalSub',
     'trapToggleTitle', 'trapToggleDesc',
-    'presetIberianTitle', 'presetIberianSub', 'presetAnglosphereTitle', 'presetAnglosphereSub'
+    'presetIberianTitle', 'presetIberianSub', 'presetAnglosphereTitle', 'presetAnglosphereSub',
+    'audioTerrBranchAmerica', 'audioTerrLeafAmNorth', 'audioTerrLeafAmCarib', 'audioTerrLeafAmSouth',
+    'audioTerrBranchEurope', 'audioTerrLeafEuWest', 'audioTerrLeafEuNorth', 'audioTerrLeafEuEast',
+    'audioTerrBranchAsiaOce', 'audioTerrLeafAoEast', 'audioTerrLeafAoSe', 'audioTerrLeafAoSouth', 'audioTerrLeafAoOce',
+    'audioTerrBranchAfwa', 'audioTerrLeafAfwaSub', 'audioTerrLeafAfwaMena', 'audioTerrWarningText'
   ];
 
   textIds.forEach(id => {
@@ -750,12 +827,13 @@ function applyTranslations() {
     }
   });
 
-  // Duplicate Audio Setup labels
+  // Duplicate Audio Setup labels & inline filter pill labels
   const audioModeLabel = document.getElementById('audioLabelGameMode');
   const audioDiffLabel = document.getElementById('audioLabelDifficulty');
   if (audioModeLabel) audioModeLabel.textContent = dict.labelGameMode;
   if (audioDiffLabel) audioDiffLabel.textContent = dict.labelDifficulty;
-  const audioModeMap = {
+
+  const mappedElements = {
     audioModeTenTitle: 'modeTenTitle',
     audioModeTenDesc: 'modeTenDesc',
     audioModeEndless3Title: 'modeEndless3Title',
@@ -768,11 +846,15 @@ function applyTranslations() {
     audioDiffMedDesc: 'diffMedDesc',
     audioDiffHardTitle: 'diffHardTitle',
     audioDiffHardDesc: 'diffHardDesc',
-    audioBlurredBadgeText: 'audioBlurredBadge'
+    audioBlurredBadgeText: 'audioBlurredBadge',
+    customizeLangFilterText: 'customizeFilterBtn',
+    customizeTerrFilterText: 'customizeFilterBtn'
   };
-  Object.entries(audioModeMap).forEach(([elId, dictKey]) => {
+  Object.entries(mappedElements).forEach(([elId, dictKey]) => {
     const el = document.getElementById(elId);
-    if (el && dict[dictKey]) el.textContent = dict[dictKey];
+    if (el && typeof dict[dictKey] === 'string') {
+      el.textContent = dict[dictKey];
+    }
   });
 
   // Prompt text depends on appMode & audioTarget
@@ -847,6 +929,7 @@ function updateHudUI() {
 }
 
 function startNewGame() {
+  state.textLoadRequestId++;
   state.score = 0;
   state.streak = 0;
   state.bestStreak = 0;
@@ -858,6 +941,9 @@ function startNewGame() {
     state.maxRounds = 10;
     state.lives = 0;
     state.maxLives = 0;
+    if (state.appMode === 'text' && typeof deduplicatePrefetchQueue === 'function') {
+      deduplicatePrefetchQueue();
+    }
   } else if (state.config.mode === 'endless_3') {
     state.maxLives = 3;
     state.lives = 3;
@@ -871,6 +957,7 @@ function startNewGame() {
   showView('gameScreen');
 
   if (state.appMode === 'audio') {
+    audioEngine.roundRecoveryAttempts = 0;
     loadNextAudioRound();
   } else {
     loadNextTextRound();
@@ -879,10 +966,12 @@ function startNewGame() {
 
 /**
  * ============================================================================
- * TEXT MODE ROUND FLOW (EXISTING WIKIPEDIA GAME)
+ * TEXT MODE ROUND FLOW (WIKIPEDIA GAME WITH ASYNC RACE GUARD)
  * ============================================================================
  */
 async function loadNextTextRound() {
+  const reqId = ++state.textLoadRequestId;
+  const fetchEpoch = state.prefetchEpoch;
   state.status = 'playing';
   state.currentQuestion = null;
 
@@ -898,7 +987,19 @@ async function loadNextTextRound() {
     ensurePrefetchQueue();
   } else {
     roundData = await generateValidArticleRound();
+    if (reqId !== state.textLoadRequestId || state.appMode !== 'text' || state.status !== 'playing') {
+      // User switched modes or returned to setup while scanning; preserve the fetched round if still valid
+      if (roundData && fetchEpoch === state.prefetchEpoch && state.prefetchQueue.length < state.prefetchTargetSize) {
+        state.prefetchQueue.push(roundData);
+        updatePrefetchBadgesUI();
+      }
+      return;
+    }
     ensurePrefetchQueue();
+  }
+
+  if (reqId !== state.textLoadRequestId || state.appMode !== 'text' || state.status !== 'playing') {
+    return;
   }
 
   state.currentQuestion = roundData;
@@ -910,7 +1011,7 @@ async function loadNextTextRound() {
   document.getElementById('scannerLoadingState').classList.add('hidden');
   document.getElementById('snippetContentArea').classList.remove('hidden');
   document.getElementById('wikiParagraphText').textContent = displayParagraph;
-  document.getElementById('charCountBadge').textContent = t().charsUnit(displayParagraph.length);
+  document.getElementById('charCountBadge').textContent = t().charsUnit(Array.from(displayParagraph).length);
 
   renderTextOptionsGrid(false);
   updateHudUI();
@@ -1093,9 +1194,9 @@ function updateAudioRevealDetailsUI() {
   const linkText = document.getElementById('revealReadArticleText');
 
   const videoTitle = audioEngine.currentVideoTitle || `${b.broadcaster} — Live News Broadcast`;
-  const videoUrl = audioEngine.currentVideoId
-    ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}`
-    : `https://www.youtube.com/channel/${encodeURIComponent(b.channelId)}`;
+  const videoUrl = typeof getBroadcasterExternalUrl === 'function'
+    ? getBroadcasterExternalUrl(b, audioEngine.currentVideoId)
+    : (audioEngine.currentVideoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}` : 'https://www.youtube.com');
 
   const localizedCountry = getLocalizedCountryName(b);
   const localizedLang = getLocalizedLanguageName({ code: b.langCode, name: b.langName });
@@ -1170,9 +1271,9 @@ function handleGuessSelection(selectedCode) {
       }
     }
 
-    const videoUrl = audioEngine.currentVideoId
-      ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}`
-      : `https://www.youtube.com/channel/${encodeURIComponent(q.broadcaster.channelId)}`;
+    const videoUrl = typeof getBroadcasterExternalUrl === 'function'
+      ? getBroadcasterExternalUrl(q.broadcaster, audioEngine.currentVideoId)
+      : (audioEngine.currentVideoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(audioEngine.currentVideoId)}` : 'https://www.youtube.com');
 
     state.history.push({
       round: state.round,
@@ -1240,6 +1341,7 @@ function handleNextStep() {
 
   state.round++;
   if (state.appMode === 'audio') {
+    audioEngine.roundRecoveryAttempts = 0;
     loadNextAudioRound();
   } else {
     loadNextTextRound();
@@ -1383,6 +1485,7 @@ document.querySelectorAll('.ui-lang-btn').forEach(btn => {
 
 // Hub & Header Mode Switchers
 document.getElementById('brandHomeBtn').addEventListener('click', () => {
+  state.textLoadRequestId++;
   stopAudioPlayback();
   state.status = 'hub';
   showView('modeHubScreen');
@@ -1393,34 +1496,64 @@ document.getElementById('headerModeTextBtn').addEventListener('click', () => swi
 document.getElementById('headerModeAudioBtn').addEventListener('click', () => switchAppMode('audio'));
 
 // Config Cards (shared across Text Setup and Audio Setup)
-document.querySelectorAll('.config-card').forEach(card => {
-  card.addEventListener('click', () => {
-    const group = card.getAttribute('data-config-group');
-    const val = card.getAttribute('data-config-value');
-    if (!group || !val) return;
+function activateConfigCard(card) {
+  const group = card.getAttribute('data-config-group');
+  const val = card.getAttribute('data-config-value');
+  if (!group || !val) return;
 
-    const prevVal = state.config[group];
-    state.config[group] = val;
+  const prevVal = state.config[group];
+  state.config[group] = val;
 
-    if (group === 'pool') {
-      if (prevVal !== val) {
-        state.prefetchEpoch++;
-        state.prefetchQueue = [];
-        ensurePrefetchQueue();
-      }
-      if (val === 'custom') {
-        openCustomModal();
-      }
-    } else if (group === 'audioTarget') {
-      if (val === 'language') {
-        openAudioLangTreeModal();
-      } else if (val === 'country') {
-        openAudioTerritoryTreeModal();
-      }
+  if (group === 'mode') {
+    if (val === 'ten_tries' && prevVal !== 'ten_tries' && typeof deduplicatePrefetchQueue === 'function') {
+      deduplicatePrefetchQueue();
     }
-    updateConfigCardsUI();
+  } else if (group === 'pool') {
+    if (prevVal !== val) {
+      state.prefetchEpoch++;
+      state.prefetchQueue = [];
+      ensurePrefetchQueue();
+    }
+    if (val === 'custom') {
+      openCustomModal();
+    }
+  }
+  // Note: Clicking Audio Target cards ('language' / 'country') now selects the target
+  // without forcing the filter modal open; dedicated Filter buttons open the tree modals.
+  updateConfigCardsUI();
+}
+
+document.querySelectorAll('.config-card').forEach(card => {
+  card.addEventListener('click', () => activateConfigCard(card));
+  card.addEventListener('keydown', (e) => {
+    if (e.target !== card) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      activateConfigCard(card);
+    }
   });
 });
+
+// Dedicated Inline Filter Buttons on Audio Target Cards
+const openAudioLangFilterBtn = document.getElementById('openAudioLangFilterBtn');
+if (openAudioLangFilterBtn) {
+  openAudioLangFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.config.audioTarget = 'language';
+    updateConfigCardsUI();
+    openAudioLangTreeModal();
+  });
+}
+
+const openAudioTerrFilterBtn = document.getElementById('openAudioTerrFilterBtn');
+if (openAudioTerrFilterBtn) {
+  openAudioTerrFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.config.audioTarget = 'country';
+    updateConfigCardsUI();
+    openAudioTerritoryTreeModal();
+  });
+}
 
 // Audio Language Tree Modal Listeners
 document.getElementById('closeAudioLangModalBtn').addEventListener('click', closeAudioLangTreeModal);
@@ -1493,7 +1626,14 @@ document.getElementById('audioTerritoryTreeModal').addEventListener('click', (e)
 });
 
 document.getElementById('crossContinentTrapToggle').addEventListener('change', (e) => {
-  state.config.audioTerritoryPreset = null;
+  // If a territory preset was active (leaving audioTerritories empty), restore default territories
+  // so toggling the Cross-Continent Trap never leaves zero territories selected.
+  if (state.config.audioTerritoryPreset !== null) {
+    state.config.audioTerritoryPreset = null;
+    if (state.config.audioTerritories.size === 0) {
+      state.config.audioTerritories = new Set(DEFAULT_AUDIO_TERR_LEAVES);
+    }
+  }
   state.config.crossContinentTrap = e.target.checked;
   updateAudioTreeCountsAndBadges();
 });
@@ -1634,11 +1774,23 @@ document.getElementById('startGameBtn').addEventListener('click', startNewGame);
 document.getElementById('startAudioGameBtn').addEventListener('click', startNewGame);
 document.getElementById('nextRoundBtn').addEventListener('click', handleNextStep);
 
+// Pause embedded broadcast if user clicks "Open on YouTube" from Reveal Card
+document.getElementById('revealWikiLink').addEventListener('click', () => {
+  if (state.appMode === 'audio' && typeof pauseAudioPlayback === 'function') {
+    pauseAudioPlayback();
+  }
+});
+
 // Audio Player Bar Controls
 document.getElementById('audioPlayPauseBtn').addEventListener('click', toggleAudioPlayPause);
 document.getElementById('audioSkip15Btn').addEventListener('click', skipAudioForward15s);
 document.getElementById('audioNewClipBtn').addEventListener('click', switchSameBroadcasterClip);
 document.getElementById('audioMuteBtn').addEventListener('click', toggleAudioMute);
+
+const audioSkipBrokenBtn = document.getElementById('audioSkipBrokenBtn');
+if (audioSkipBrokenBtn) {
+  audioSkipBrokenBtn.addEventListener('click', skipUnavailableBroadcast);
+}
 
 /**
  * Syncs the bottom Video Display toggle label and track color across all 3 states:
@@ -1707,12 +1859,14 @@ document.getElementById('showBlurredVideoToggle').addEventListener('change', () 
 
 // Return to Setup Buttons
 document.getElementById('openSettingsBtn').addEventListener('click', () => {
+  state.textLoadRequestId++;
   stopAudioPlayback();
   state.status = 'setup';
   showView(state.appMode === 'audio' ? 'audioSetupScreen' : 'setupScreen');
 });
 
 document.getElementById('summaryChangeSettingsBtn').addEventListener('click', () => {
+  state.textLoadRequestId++;
   stopAudioPlayback();
   state.status = 'setup';
   showView(state.appMode === 'audio' ? 'audioSetupScreen' : 'setupScreen');
