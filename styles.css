@@ -1,7 +1,7 @@
 /* ============================================================================
  * GUESS THE LANGUAGE — CUSTOM STYLESHEET
  * Separate layout tuning for Portrait (9:16 mobile list view) vs Landscape
- * + TV News Audio/Video Player & Mode Hub styles
+ * + Non-collapsed YouTube Player Overlay, Audio Filter Pills & Mode Hub styles
  * ============================================================================ */
 
 body {
@@ -21,12 +21,18 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  cursor: pointer;
 }
 
 .config-card.active {
   border-color: #6366f1;
   background-color: rgba(99, 102, 241, 0.14);
   box-shadow: 0 0 0 1px #6366f1, 0 10px 25px -8px rgba(99, 102, 241, 0.45);
+}
+
+.config-card:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
 }
 
 /* Answer Option Button Transitions */
@@ -44,22 +50,32 @@ body {
 
 /* ============================================================================
  * TV NEWS AUDIO & VIDEO PLAYER STYLES
+ * Keeps the YouTube IFrame >= 220x220px with non-zero opacity behind the
+ * opaque Audio-Only waveform overlay so strict mobile/desktop browsers never
+ * throttle or refuse audio playback.
  * ============================================================================ */
 .tv-viewport-hidden {
-  height: 0 !important;
-  min-height: 0 !important;
-  opacity: 0;
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  min-width: 220px;
+  height: 220px !important;
+  min-height: 220px !important;
+  opacity: 0.01;
   pointer-events: none;
   overflow: hidden;
+  z-index: 0;
   margin: 0 !important;
   border-width: 0 !important;
 }
 
 .tv-viewport-visible {
+  position: relative;
+  z-index: 1;
   height: 11.5rem;
   opacity: 1;
   overflow: hidden;
-  position: relative;
 }
 
 @media (orientation: landscape) {
@@ -219,6 +235,11 @@ body {
     white-space: normal;
   }
 
+  .audio-filter-btn {
+    padding: 0.12rem 0.45rem;
+    font-size: 0.65rem;
+  }
+
   .start-game-btn {
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
@@ -284,7 +305,7 @@ body {
 }
 
 /* ============================================================================
- * LANDSCAPE VIEW (Restores the previous spacious checkpoint layout)
+ * LANDSCAPE VIEW (Restores the spacious desktop/tablet layout)
  * ============================================================================ */
 @media (orientation: landscape) {
   .header-inner {
@@ -358,6 +379,11 @@ body {
   .config-card-desc {
     font-size: 0.78rem;
     line-height: 1.45;
+  }
+
+  .audio-filter-btn {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
   }
 
   .start-game-btn {
