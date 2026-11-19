@@ -3,7 +3,8 @@
  * WIKIPEDIA LANGUAGE DATABASE & SCRIPT MAPPINGS
  * ============================================================================
  * Contains all language editions, writing scripts, language families,
- * pool classifications ('stable' vs 'experimental'), and custom categories.
+ * pool classifications ('stable' vs 'experimental'), custom categories,
+ * and optional `wikiSubdomain` overrides (e.g. Cantonese -> 'zh-yue').
  */
 
 const WIKI_LANGUAGES = [
@@ -91,7 +92,7 @@ const WIKI_LANGUAGES = [
   { code: 'km', name: 'Khmer', native: 'ភាសាខ្មែរ', script: 'Khmer', family: 'Austroasiatic', pool: 'experimental', cats: ['asian'] },
   { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt', script: 'Latin', family: 'Austroasiatic', pool: 'stable', cats: ['asian'] },
   { code: 'zh', name: 'Chinese', native: '中文', script: 'East-Asian', family: 'Sino-Tibetan', pool: 'stable', cats: ['asian'] },
-  { code: 'yue', name: 'Cantonese', native: '粵語', script: 'East-Asian', family: 'Sino-Tibetan', pool: 'experimental', cats: ['asian'] },
+  { code: 'yue', wikiSubdomain: 'zh-yue', name: 'Cantonese', native: '粵語', script: 'East-Asian', family: 'Sino-Tibetan', pool: 'experimental', cats: ['asian'] },
   { code: 'ja', name: 'Japanese', native: '日本語', script: 'East-Asian', family: 'Japonic', pool: 'stable', cats: ['asian'] },
   { code: 'ko', name: 'Korean', native: '한국어', script: 'Hangul', family: 'Koreanic', pool: 'stable', cats: ['asian'] },
   { code: 'ka', name: 'Georgian', native: 'ქართული', script: 'Georgian', family: 'Kartvelian', pool: 'stable', cats: ['asian', 'european'] },
