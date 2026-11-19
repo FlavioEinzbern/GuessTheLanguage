@@ -74,7 +74,7 @@
               <p id="hubTextDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">Read a clean, bracket-free random Wikipedia paragraph and identify which language it is written in.</p>
             </div>
             <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-indigo-400 group-hover:translate-x-1 transition">
-              <span>Open Text Game</span>
+              <span id="hubTextCta">Open Text Game</span>
               <i class="fa-solid fa-arrow-right"></i>
             </div>
           </button>
@@ -92,7 +92,7 @@
               <p id="hubAudioDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">Listen to real TV news broadcasts from across the globe and guess either the spoken Language or the Country.</p>
             </div>
             <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-sky-400 group-hover:translate-x-1 transition">
-              <span>Open Audio Game</span>
+              <span id="hubAudioCta">Open Audio Game</span>
               <i class="fa-solid fa-arrow-right"></i>
             </div>
           </button>
@@ -100,7 +100,7 @@
       </div>
     </section>
 
-    <!-- 1A. TEXT PRE-GAME SETUP SCREEN (EXISTING WIKIPEDIA SETUP UNCHANGED) -->
+    <!-- 1A. TEXT PRE-GAME SETUP SCREEN -->
     <section id="setupScreen" class="hidden setup-screen-section flex-1 flex flex-col">
       <div class="setup-panel bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl flex-1 flex flex-col justify-between">
         <div class="setup-panel-header flex items-center justify-between gap-2 border-b border-slate-800">
@@ -140,7 +140,7 @@
                 <span id="modeEndless1Title" class="config-card-title font-bold text-white leading-tight">Endless (Single Life)</span>
                 <span class="text-amber-400 text-xs sm:text-sm shrink-0"><i class="fa-solid fa-skull"></i></span>
               </div>
-              <p id="modeEndless1Desc" class="config-card-desc text-slate-400">Sudden-death survival mode. One wrong language guess ends your streak immediately.</p>
+              <p id="modeEndless1Desc" class="config-card-desc text-slate-400">Sudden-death survival mode. One wrong guess ends your streak immediately.</p>
             </button>
           </div>
         </div>
@@ -152,7 +152,7 @@
             <button type="button" data-config-group="pool" data-config-value="stable" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
               <div class="flex items-center justify-between gap-1 mb-1.5">
                 <span id="poolStableTitle" class="config-card-title font-bold text-white leading-tight">Stable</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">66</span>
+                <span id="poolStableCountBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">69</span>
               </div>
               <p id="poolStableDesc" class="config-card-desc text-slate-400">Major world languages with deep, well-maintained Wikipedia editions and rich paragraphs.</p>
             </button>
@@ -160,7 +160,7 @@
             <button type="button" data-config-group="pool" data-config-value="experimental" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
               <div class="flex items-center justify-between gap-1 mb-1.5">
                 <span id="poolExpTitle" class="config-card-title font-bold text-white leading-tight">Experimental</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold shrink-0">130+</span>
+                <span id="poolExpCountBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold shrink-0">112</span>
               </div>
               <p id="poolExpDesc" class="config-card-desc text-slate-400">Includes regional, historical, indigenous, and constructed languages from List of Wikipedias.</p>
             </button>
@@ -184,7 +184,7 @@
                 <span id="diffEasyTitle" class="config-card-title font-bold text-white leading-tight">Easy Mode</span>
                 <i class="fa-solid fa-dice text-emerald-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffEasyDesc" class="config-card-desc text-slate-400">The 4 language options are picked completely at random from your active pool.</p>
+              <p id="diffEasyDesc" class="config-card-desc text-slate-400">The 4 options are picked completely at random from your active pool.</p>
             </button>
 
             <button type="button" data-config-group="difficulty" data-config-value="medium" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
@@ -192,7 +192,7 @@
                 <span id="diffMedTitle" class="config-card-title font-bold text-white leading-tight">Medium Mode</span>
                 <i class="fa-solid fa-scale-balanced text-amber-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages across different scripts (e.g. Russian &amp; Polish, Vietnamese &amp; Chinese).</p>
+              <p id="diffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages/countries across regions.</p>
             </button>
 
             <button type="button" data-config-group="difficulty" data-config-value="hard" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
@@ -200,7 +200,7 @@
                 <span id="diffHardTitle" class="config-card-title font-bold text-white leading-tight">Hard Mode</span>
                 <i class="fa-solid fa-fire text-rose-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="diffHardDesc" class="config-card-desc text-slate-400">All 4 choices share the same writing system and language family so alphabet shape won't give it away.</p>
+              <p id="diffHardDesc" class="config-card-desc text-slate-400">Choices share the same script/family (or same language for Country accent battles).</p>
             </button>
           </div>
         </div>
@@ -225,7 +225,7 @@
           </div>
           <span class="px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-bold shrink-0 flex items-center gap-1.5">
             <i class="fa-solid fa-satellite-dish"></i>
-            <span id="tvChannelCountBadge">97 TV Channels</span>
+            <span id="tvChannelCountBadge">98 TV Channels</span>
           </span>
         </div>
 
@@ -259,25 +259,37 @@
           </div>
         </div>
 
-        <!-- STEP 2: AUDIO TARGET (GUESS THE LANGUAGE OR GUESS THE COUNTRY) -->
+        <!-- STEP 2: AUDIO TARGET (NON-INTRUSIVE SELECTION + EXPLICIT FILTER BUTTONS) -->
         <div class="setup-step-group flex flex-col justify-center">
           <label id="labelAudioTarget" class="setup-step-label block font-bold uppercase tracking-wider text-sky-400">2. What Do You Want to Guess?</label>
           <div class="setup-cards-grid grid grid-cols-2 gap-2 sm:gap-3.5">
-            <button type="button" data-config-group="audioTarget" data-config-value="language" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1.5">
-                <span id="targetLangTitle" class="config-card-title font-bold text-white leading-tight">Guess the Language</span>
-                <span id="audioLangTreeBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold shrink-0">5 groups</span>
+            <div role="button" tabindex="0" data-config-group="audioTarget" data-config-value="language" class="config-card active text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                <span id="targetLangTitle" class="config-card-title font-bold text-white leading-tight truncate">Guess the Language</span>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span id="audioLangTreeBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">5 groups</span>
+                  <button id="openAudioLangFilterBtn" type="button" class="audio-filter-btn rounded-lg bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-700 font-semibold inline-flex items-center gap-1 transition">
+                    <i class="fa-solid fa-sliders text-[9px]"></i>
+                    <span id="customizeLangFilterText">Filter</span>
+                  </button>
+                </div>
               </div>
               <p id="targetLangDesc" class="config-card-desc text-slate-400">Listen to the TV news anchor and identify which language is being spoken.</p>
-            </button>
+            </div>
 
-            <button type="button" data-config-group="audioTarget" data-config-value="country" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
-              <div class="flex items-center justify-between gap-1 mb-1.5">
-                <span id="targetCountryTitle" class="config-card-title font-bold text-white leading-tight">Guess the Country</span>
-                <span id="audioTerrTreeBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">5 areas • Trap</span>
+            <div role="button" tabindex="0" data-config-group="audioTarget" data-config-value="country" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
+              <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                <span id="targetCountryTitle" class="config-card-title font-bold text-white leading-tight truncate">Guess the Country</span>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span id="audioTerrTreeBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">5 areas • Trap</span>
+                  <button id="openAudioTerrFilterBtn" type="button" class="audio-filter-btn rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white border border-slate-700 font-semibold inline-flex items-center gap-1 transition">
+                    <i class="fa-solid fa-sliders text-[9px]"></i>
+                    <span id="customizeTerrFilterText">Filter</span>
+                  </button>
+                </div>
               </div>
               <p id="targetCountryDesc" class="config-card-desc text-slate-400">Identify the exact country of the broadcast using language, dialect, and accent clues.</p>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -290,7 +302,7 @@
                 <span id="audioDiffEasyTitle" class="config-card-title font-bold text-white leading-tight">Easy Mode</span>
                 <i class="fa-solid fa-dice text-emerald-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="audioDiffEasyDesc" class="config-card-desc text-slate-400">The 4 options are picked completely at random from around the world.</p>
+              <p id="audioDiffEasyDesc" class="config-card-desc text-slate-400">The 4 options are picked completely at random from your active pool.</p>
             </button>
 
             <button type="button" data-config-group="difficulty" data-config-value="medium" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
@@ -298,7 +310,7 @@
                 <span id="audioDiffMedTitle" class="config-card-title font-bold text-white leading-tight">Medium Mode</span>
                 <i class="fa-solid fa-scale-balanced text-amber-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="audioDiffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages and countries from the same continent.</p>
+              <p id="audioDiffMedDesc" class="config-card-desc text-slate-400">Mixes related or neighboring languages/countries across regions.</p>
             </button>
 
             <button type="button" data-config-group="difficulty" data-config-value="hard" class="config-card text-left rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-slate-700">
@@ -306,7 +318,7 @@
                 <span id="audioDiffHardTitle" class="config-card-title font-bold text-white leading-tight">Hard Mode</span>
                 <i class="fa-solid fa-fire text-rose-400 text-xs sm:text-sm shrink-0"></i>
               </div>
-              <p id="audioDiffHardDesc" class="config-card-desc text-slate-400">Same language family or same spoken language (e.g. Spain vs. Mexico vs. Argentina).</p>
+              <p id="audioDiffHardDesc" class="config-card-desc text-slate-400">Choices share the same script/family (or same language for Country accent battles).</p>
             </button>
           </div>
         </div>
@@ -329,7 +341,7 @@
         <div class="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-slate-800/80 text-xs text-slate-400">
           <div class="flex items-center gap-1.5 min-w-0">
             <i class="fa-brands fa-wikipedia-w text-indigo-400 shrink-0"></i>
-            <span id="snippetHeaderBadge" class="truncate">Random Wikipedia Paragraph (Bracket-Free • 200–600 chars)</span>
+            <span id="snippetHeaderBadge" class="truncate">Random Wikipedia Paragraph (Bracket-Free • Clean Extract)</span>
           </div>
           <span id="charCountBadge" class="px-2.5 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px] shrink-0">0 chars</span>
         </div>
@@ -340,7 +352,7 @@
             <i class="fa-solid fa-spinner fa-spin"></i>
           </div>
           <p id="scannerStatusTitle" class="text-sm font-bold text-white">Scanning Random Wikipedia Articles...</p>
-          <p id="scannerStatusSub" class="text-xs text-slate-400 max-w-md">Searching for a clean paragraph (≥200 characters) without any (), {}, or [] brackets.</p>
+          <p id="scannerStatusSub" class="text-xs text-slate-400 max-w-md">Searching for a clean paragraph without brackets, heavy numbers, or foreign script.</p>
         </div>
 
         <!-- Paragraph Content -->
@@ -375,32 +387,39 @@
               <i class="fa-solid fa-rotate text-emerald-400"></i>
               <span id="audioNewClipBtnText" class="hidden sm:inline">Try Another Clip</span>
             </button>
+            <button id="audioSkipBrokenBtn" type="button" class="hidden px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 transition" title="Skip unavailable broadcast">
+              <i class="fa-solid fa-forward"></i>
+              <span id="audioSkipBrokenBtnText">Skip Broadcast</span>
+            </button>
             <button id="audioMuteBtn" type="button" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition" title="Mute / Unmute">
               <i id="audioMuteBtnIcon" class="fa-solid fa-volume-high text-indigo-400"></i>
             </button>
           </div>
         </div>
 
-        <!-- RADIO AUDIO WAVEFORM BOX (Shown while guessing when Video Toggle is OFF) -->
-        <div id="audioRadioWaveformBox" class="py-4 sm:py-6 px-3 flex flex-col items-center justify-center text-center space-y-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
-          <div id="waveformBarsContainer" class="waveform-active flex items-center justify-center gap-1.5 h-9">
-            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
-            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
-            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
-            <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+        <!-- MEDIA STAGE: Clips hidden >=220px YouTube iframe behind opaque Waveform box -->
+        <div id="audioMediaStage" class="relative overflow-hidden rounded-2xl">
+          <!-- RADIO AUDIO WAVEFORM OVERLAY (Shown while guessing when Video Toggle is OFF) -->
+          <div id="audioRadioWaveformBox" class="relative z-10 py-4 sm:py-6 px-3 flex flex-col items-center justify-center text-center space-y-3 bg-slate-950 rounded-2xl border border-slate-800/80">
+            <div id="waveformBarsContainer" class="waveform-active flex items-center justify-center gap-1.5 h-9">
+              <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+              <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+              <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+              <span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span><span class="wave-bar"></span>
+            </div>
+            <p id="audioWaveHint" class="text-xs text-slate-400">Listening to live national TV news audio... Video reveals after you answer!</p>
           </div>
-          <p id="audioWaveHint" class="text-xs text-slate-400">Listening to live national TV news audio... Video reveals after you answer!</p>
-        </div>
 
-        <!-- YOUTUBE VIDEO VIEWPORT (Blurred when Video Toggle is ON while guessing; ALWAYS Clear after answering or in Remove Blur mode!) -->
-        <div id="tvViewportWrapper" class="tv-viewport-hidden w-full rounded-2xl bg-black border border-slate-800 relative">
-          <div id="ytIframeScaleBox" class="w-full h-full tv-iframe-blurred">
-            <div id="ytPlayerElement" class="w-full h-full"></div>
-          </div>
-          <!-- Overlay badge shown only when blurred during guessing -->
-          <div id="tvBlurredOverlayBadge" class="hidden absolute bottom-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-slate-950/85 border border-slate-700 text-[11px] text-slate-300 font-semibold pointer-events-none flex items-center gap-1.5">
-            <i class="fa-solid fa-eye-slash text-sky-400"></i>
-            <span id="audioBlurredBadgeText">Blurred TV Feed (Un-blurs after answering)</span>
+          <!-- YOUTUBE VIDEO VIEWPORT (Never collapsed to 0px; Blurred when ON while guessing; ALWAYS Clear after answering or in Remove Blur mode) -->
+          <div id="tvViewportWrapper" class="tv-viewport-hidden w-full rounded-2xl bg-black border border-slate-800">
+            <div id="ytIframeScaleBox" class="w-full h-full tv-iframe-blurred">
+              <div id="ytPlayerElement" class="w-full h-full"></div>
+            </div>
+            <!-- Overlay badge shown only when blurred during guessing -->
+            <div id="tvBlurredOverlayBadge" class="hidden absolute bottom-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-slate-950/85 border border-slate-700 text-[11px] text-slate-300 font-semibold pointer-events-none flex items-center gap-1.5">
+              <i class="fa-solid fa-eye-slash text-sky-400"></i>
+              <span id="audioBlurredBadgeText">Blurred TV Feed (Un-blurs after answering)</span>
+            </div>
           </div>
         </div>
       </div>
@@ -566,7 +585,7 @@
     </footer>
   </main>
 
-  <!-- CUSTOM CATEGORIES POPUP MODAL -->
+  <!-- CUSTOM CATEGORIES POPUP MODAL (TEXT MODE) -->
   <div id="customCategoriesModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5">
       <div class="flex items-start justify-between gap-3 border-b border-slate-800 pb-3.5">
@@ -630,7 +649,7 @@
             <input type="checkbox" value="indigenous" class="category-checkbox w-4 h-4 rounded accent-indigo-600" />
             <div>
               <div id="catIndigTitle" class="text-sm font-bold text-white">Indigenous Languages</div>
-              <div id="catIndigDesc" class="text-xs text-slate-400">Quechua, Guarani, Nahuatl, Navajo, Aymara, Cherokee, Northern Sami, Maori, etc.</div>
+              <div id="catIndigDesc" class="text-xs text-slate-400">Quechua, Guarani, Nahuatl, Navajo, Aymara, Northern Sami, Maori, etc.</div>
             </div>
           </div>
           <span id="catCountIndig" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300"></span>
@@ -675,38 +694,38 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="lang" data-parent="euro" checked class="audio-tree-parent w-4 h-4 rounded accent-sky-500" />
-              <span class="text-sm font-extrabold text-white">🌍 European</span>
+              <span id="audioLangBranchEuro" class="text-sm font-extrabold text-white">🌍 European</span>
             </div>
             <span id="langParentCountEuro" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-sky-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-2">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_romance" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Romance
+                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_romance" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafRomance">Romance</span>
               </span>
-              <span id="langLeafCount_euro_romance" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_euro_romance" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_germanic" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Germanic (Nordic included)
+                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_germanic" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafGermanic">Germanic (Nordic included)</span>
               </span>
-              <span id="langLeafCount_euro_germanic" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_euro_germanic" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_slavic" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Slavic
+                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_slavic" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafSlavic">Slavic</span>
               </span>
-              <span id="langLeafCount_euro_slavic" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_euro_slavic" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_others" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Others (Celtic, Baltic, Uralic, Greek &amp; Albanian)
+                <input type="checkbox" data-tree="lang" data-parent="euro" value="euro_others" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafEuroOthers">Others (Celtic, Baltic, Uralic, Greek &amp; Albanian)</span>
               </span>
-              <span id="langLeafCount_euro_others" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_euro_others" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -716,31 +735,31 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="lang" data-parent="asia" class="audio-tree-parent w-4 h-4 rounded accent-sky-500" />
-              <span class="text-sm font-extrabold text-white">🌏 Asian</span>
+              <span id="audioLangBranchAsia" class="text-sm font-extrabold text-white">🌏 Asian</span>
             </div>
             <span id="langParentCountAsia" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-sky-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-2">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_east" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                East Asia (Mandarin, Cantonese, Japanese, Korean, Mongolian)
+                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_east" checked class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafAsiaEast">East Asia (Mandarin, Cantonese, Japanese, Korean, Mongolian)</span>
               </span>
-              <span id="langLeafCount_asia_east" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_asia_east" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_se" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Southeast Asia (Vietnamese, Thai, Lao, Khmer, Burmese, Indonesian, Malay, Tagalog, Javanese)
+                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_se" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafAsiaSe">Southeast Asia (Vietnamese, Thai, Lao, Khmer, Burmese, Indonesian, Malay, Tagalog, Javanese)</span>
               </span>
-              <span id="langLeafCount_asia_se" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_asia_se" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_south" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                South Asia (Hindi, Urdu, Bengali, Sinhala, Nepali)
+                <input type="checkbox" data-tree="lang" data-parent="asia" value="asia_south" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafAsiaSouth">South Asia (Hindi, Urdu, Bengali, Sinhala, Nepali)</span>
               </span>
-              <span id="langLeafCount_asia_south" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_asia_south" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -750,17 +769,17 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="lang" data-parent="afwa" class="audio-tree-parent w-4 h-4 rounded accent-sky-500" />
-              <span class="text-sm font-extrabold text-white">🌍 African and West Asian</span>
+              <span id="audioLangBranchAfwa" class="text-sm font-extrabold text-white">🌍 African and West Asian</span>
             </div>
             <span id="langParentCountAfwa" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-sky-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-2">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="lang" data-parent="afwa" value="afr_west_asia_other" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500" />
-                Middle East, Caucasus &amp; Central Asia (plus Swahili &amp; Afrikaans)
+                <input type="checkbox" data-tree="lang" data-parent="afwa" value="afr_west_asia_other" class="audio-lang-leaf w-3.5 h-3.5 rounded accent-sky-500 shrink-0" />
+                <span id="audioLangLeafAfwaOther">Middle East, Caucasus &amp; Central Asia (plus Swahili &amp; Afrikaans)</span>
               </span>
-              <span id="langLeafCount_afr_west_asia_other" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="langLeafCount_afr_west_asia_other" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -768,7 +787,7 @@
 
       <p id="audioLangWarningMsg" class="hidden text-xs text-amber-400 font-medium">
         <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-        <span>At least one language branch must remain selected.</span>
+        <span id="audioLangWarningText">At least one language branch must remain selected.</span>
       </p>
 
       <div class="flex items-center justify-between pt-2 border-t border-slate-800">
@@ -816,9 +835,9 @@
         <button id="presetIberianBtn" type="button" data-terr-preset="iberian" class="terr-preset-btn p-2.5 rounded-2xl bg-slate-950/75 border border-slate-800 hover:border-emerald-500/50 text-left transition flex items-center justify-between gap-2">
           <div class="min-w-0">
             <div id="presetIberianTitle" class="text-xs font-bold text-white truncate">Iberian Languages</div>
-            <div id="presetIberianSub" class="text-[10px] text-slate-400 truncate">Spanish &amp; Portuguese (Global)</div>
+            <div id="presetIberianSub" class="text-[10px] text-slate-400 truncate">All Spanish &amp; Portuguese globally</div>
           </div>
-          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">14</span>
+          <span id="presetIberianCountBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">14</span>
         </button>
 
         <button id="presetAnglosphereBtn" type="button" data-terr-preset="anglosphere" class="terr-preset-btn p-2.5 rounded-2xl bg-slate-950/75 border border-slate-800 hover:border-emerald-500/50 text-left transition flex items-center justify-between gap-2">
@@ -826,7 +845,7 @@
             <div id="presetAnglosphereTitle" class="text-xs font-bold text-white truncate">Anglosphere</div>
             <div id="presetAnglosphereSub" class="text-[10px] text-slate-400 truncate">US, CA (EN), UK, IE, AU, NZ</div>
           </div>
-          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">6</span>
+          <span id="presetAnglosphereCountBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 shrink-0">6</span>
         </button>
       </div>
 
@@ -837,31 +856,31 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="terr" data-parent="america" class="audio-terr-parent w-4 h-4 rounded accent-emerald-500" />
-              <span class="text-sm font-extrabold text-white">🌎 America</span>
+              <span id="audioTerrBranchAmerica" class="text-sm font-extrabold text-white">🌎 America</span>
             </div>
             <span id="terrParentCountAmerica" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-1.5">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="america" value="am_north" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                North America
+                <input type="checkbox" data-tree="terr" data-parent="america" value="am_north" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAmNorth">North America</span>
               </span>
-              <span id="terrLeafCount_am_north" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_am_north" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="america" value="am_carib_central" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Caribbean &amp; Central America
+                <input type="checkbox" data-tree="terr" data-parent="america" value="am_carib_central" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAmCarib">Caribbean &amp; Central America</span>
               </span>
-              <span id="terrLeafCount_am_carib_central" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_am_carib_central" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="america" value="am_south" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                South America
+                <input type="checkbox" data-tree="terr" data-parent="america" value="am_south" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAmSouth">South America</span>
               </span>
-              <span id="terrLeafCount_am_south" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_am_south" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -871,31 +890,31 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="terr" data-parent="europe" checked class="audio-terr-parent w-4 h-4 rounded accent-emerald-500" />
-              <span class="text-sm font-extrabold text-white">🌍 Europe</span>
+              <span id="audioTerrBranchEurope" class="text-sm font-extrabold text-white">🌍 Europe</span>
             </div>
             <span id="terrParentCountEurope" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-1.5">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_west" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Western Europe (British Isles, Iberian &amp; Italian Peninsula included)
+                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_west" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafEuWest">Western Europe (British Isles, Iberian &amp; Italian Peninsula included)</span>
               </span>
-              <span id="terrLeafCount_eu_west" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_eu_west" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_north" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Northern Europe
+                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_north" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafEuNorth">Northern Europe</span>
               </span>
-              <span id="terrLeafCount_eu_north" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_eu_north" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_east_balkan" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Eastern and Balkan Europe (Greece included)
+                <input type="checkbox" data-tree="terr" data-parent="europe" value="eu_east_balkan" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafEuEast">Eastern and Balkan Europe (Greece included)</span>
               </span>
-              <span id="terrLeafCount_eu_east_balkan" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_eu_east_balkan" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -905,38 +924,38 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="terr" data-parent="asiaoce" class="audio-terr-parent w-4 h-4 rounded accent-emerald-500" />
-              <span class="text-sm font-extrabold text-white">🌏 Asia and Oceania</span>
+              <span id="audioTerrBranchAsiaOce" class="text-sm font-extrabold text-white">🌏 Asia and Oceania</span>
             </div>
             <span id="terrParentCountAsiaOce" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-1.5">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_east_asia" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                East Asia
+                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_east_asia" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAoEast">East Asia</span>
               </span>
-              <span id="terrLeafCount_ao_east_asia" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_ao_east_asia" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_se_asia" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Southeast Asia
+                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_se_asia" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAoSe">Southeast Asia</span>
               </span>
-              <span id="terrLeafCount_ao_se_asia" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_ao_se_asia" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_south_asia" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                South Asia
+                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_south_asia" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAoSouth">South Asia</span>
               </span>
-              <span id="terrLeafCount_ao_south_asia" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_ao_south_asia" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_oceania" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Oceania
+                <input type="checkbox" data-tree="terr" data-parent="asiaoce" value="ao_oceania" checked class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAoOce">Oceania</span>
               </span>
-              <span id="terrLeafCount_ao_oceania" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_ao_oceania" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -946,24 +965,24 @@
           <label class="flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-2.5">
               <input type="checkbox" data-tree="terr" data-parent="afwa" class="audio-terr-parent w-4 h-4 rounded accent-emerald-500" />
-              <span class="text-sm font-extrabold text-white">🌍 Africa and West Asia</span>
+              <span id="audioTerrBranchAfwa" class="text-sm font-extrabold text-white">🌍 Africa and West Asia</span>
             </div>
             <span id="terrParentCountAfwa" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300"></span>
           </label>
           <div class="pl-6 border-l-2 border-slate-800 ml-2 space-y-1.5">
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="afwa" value="afwa_subsaharan" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Sub-Saharan Africa
+                <input type="checkbox" data-tree="terr" data-parent="afwa" value="afwa_subsaharan" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAfwaSub">Sub-Saharan Africa</span>
               </span>
-              <span id="terrLeafCount_afwa_subsaharan" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_afwa_subsaharan" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
-            <label class="flex items-center justify-between text-xs cursor-pointer">
+            <label class="flex items-center justify-between text-xs cursor-pointer gap-2">
               <span class="flex items-center gap-2 text-slate-200 font-medium">
-                <input type="checkbox" data-tree="terr" data-parent="afwa" value="afwa_mena_caucasus" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500" />
-                Middle East, Caucasus &amp; Central Asia
+                <input type="checkbox" data-tree="terr" data-parent="afwa" value="afwa_mena_caucasus" class="audio-terr-leaf w-3.5 h-3.5 rounded accent-emerald-500 shrink-0" />
+                <span id="audioTerrLeafAfwaMena">Middle East, Caucasus &amp; Central Asia</span>
               </span>
-              <span id="terrLeafCount_afwa_mena_caucasus" class="font-mono text-[11px] text-slate-400"></span>
+              <span id="terrLeafCount_afwa_mena_caucasus" class="font-mono text-[11px] text-slate-400 shrink-0"></span>
             </label>
           </div>
         </div>
@@ -971,7 +990,7 @@
 
       <p id="audioTerrWarningMsg" class="hidden text-xs text-amber-400 font-medium">
         <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-        <span>At least one territory must remain selected.</span>
+        <span id="audioTerrWarningText">At least one territory must remain selected.</span>
       </p>
 
       <div class="flex items-center justify-between pt-2 border-t border-slate-800">
