@@ -4,6 +4,8 @@
  * ============================================================================
  */
 
+const CJK_LANG_CODES = new Set(['zh', 'yue', 'ja']);
+
 /**
  * Checks if a paragraph contains any forbidden brackets (), {}, or []
  * including full-width CJK brackets.
@@ -15,15 +17,24 @@ function hasForbiddenBrackets(text) {
 /**
  * Rejects paragraphs that have too many numbers or characters/scripts
  * not commonly used in the selected language.
+ * - Counts Unicode combining marks (`\p{M}`) alongside letters (`\p{L}`)
+ *   so Indic & Southeast Asian abugidas (Hindi, Bengali, Thai, Khmer, Burmese, etc.)
+ *   are not falsely penalized by vowel signs and tone marks.
+ * - Uses code-point length and scaled CJK minimums (~110 chars for zh/yue/ja).
  */
-function passesLanguagePurityAndNumberCheck(text, langObj) {
-  const sample = text.length > 600 ? text.slice(0, 600) : text;
+function passesLanguagePurityAndNumberCheck(text, langObj, options = {}) {
+  const isCjk = CJK_LANG_CODES.has(langObj.code);
+  const codePoints = Array.from(text);
+  const sample = codePoints.length > 600 ? codePoints.slice(0, 600).join('') : text;
+
   const nonSpaceChars = sample.replace(/\s+/g, '');
-  if (nonSpaceChars.length < 150) return false;
+  const nonSpaceLen = Array.from(nonSpaceChars).length;
+  const minNonSpace = isCjk ? 95 : 150;
+  if (nonSpaceLen < minNonSpace) return false;
 
   // 1. Reject paragraphs with excessive digits (> 4% of non-space characters or > 4 number groups)
   const digitMatches = sample.match(/\p{N}/gu) || [];
-  if (digitMatches.length / nonSpaceChars.length > 0.04) return false;
+  if (digitMatches.length / nonSpaceLen > 0.04) return false;
 
   const numberGroups = sample.match(/\p{N}+/gu) || [];
   if (numberGroups.length > 4) return false;
@@ -33,13 +44,15 @@ function passesLanguagePurityAndNumberCheck(text, langObj) {
     return false;
   }
 
-  // 3. Ensure text is predominantly letters (rejects punctuation/table-heavy extracts)
+  // 3. Ensure text is predominantly letters + combining marks (abugida-safe)
   const allLetters = sample.match(/\p{L}/gu) || [];
-  if (allLetters.length < 140) return false;
-  if (allLetters.length / nonSpaceChars.length < 0.82) return false;
+  const allLettersAndMarks = sample.match(/[\p{L}\p{M}]/gu) || [];
+  const minLetterUnits = isCjk ? 85 : 130;
+  if (allLetters.length === 0 || allLettersAndMarks.length < minLetterUnits) return false;
+  if (allLettersAndMarks.length / nonSpaceLen < 0.82) return false;
 
   // 4. Native Script Purity Check:
-  // At least 94% of all letters in the paragraph must belong to the language's native script.
+  // At least 94% of all base letters in the paragraph must belong to the language's native script.
   const expectedRegex = SCRIPT_CHAR_REGEX[langObj.script];
   if (expectedRegex) {
     let nativeScriptCount = 0;
@@ -49,45 +62,25 @@ function passesLanguagePurityAndNumberCheck(text, langObj) {
     if (nativeScriptCount / allLetters.length < 0.94) return false;
   }
 
-  // 5. Japanese Standard Check (Easy/Medium): require a natural mix of Hiragana/Katakana
+  // 5. Japanese Kana Check:
+  // Standard mode requires a natural Kana ratio (>= 15%); Hard Mode Kanji-dense lookup
+  // relaxes this floor (>= 2%) to allow authentic encyclopedic Kanji-heavy paragraphs.
   if (langObj.code === 'ja') {
     const kanaMatches = sample.match(/[\p{Script=Hiragana}\p{Script=Katakana}]/gu) || [];
-    if (kanaMatches.length / allLetters.length < 0.15) return false;
+    const minKanaRatio = options.allowLowKana ? 0.02 : 0.15;
+    if (kanaMatches.length / allLetters.length < minKanaRatio) return false;
   }
 
   return true;
 }
 
 /**
- * Hard Mode Japanese Helper:
- * Builds a 100% Kanji (Han characters + CJK punctuation) passage from the article
- * so that in Hard Mode, a Japanese snippet can occasionally be 100% Kanji.
- */
-function extractHardModePureKanjiSnippet(fullExtract) {
-  if (!fullExtract) return null;
-  const kanjiSegments = fullExtract.match(/[\p{Script=Han}]+/gu) || [];
-  const filteredSegments = kanjiSegments.filter(seg => seg.length >= 2);
-  if (filteredSegments.length === 0) return null;
-
-  let result = '';
-  for (let i = 0; i < filteredSegments.length; i++) {
-    result += filteredSegments[i];
-    if (i < filteredSegments.length - 1) {
-      result += (i % 5 === 4) ? '。' : '、';
-    } else {
-      result += '。';
-    }
-    if (result.length >= 260) break;
-  }
-  return result.length >= 200 ? result : null;
-}
-
-/**
  * Splits a raw Wikipedia plain-text extract into clean paragraphs that pass all rules.
  */
-function extractCleanParagraphs(rawExtract, langObj) {
+function extractCleanParagraphs(rawExtract, langObj, options = {}) {
   if (!rawExtract || typeof rawExtract !== 'string') return [];
 
+  const minCharLen = CJK_LANG_CODES.has(langObj.code) ? 110 : 200;
   const lines = rawExtract
     .split(/\r?\n+/)
     .map(line => line.trim())
@@ -95,11 +88,11 @@ function extractCleanParagraphs(rawExtract, langObj) {
 
   const valid = [];
   for (const p of lines) {
-    if (p.length < 200) continue;
+    if (Array.from(p).length < minCharLen) continue;
     if (/^=+.*=+$/.test(p)) continue;
     if (hasForbiddenBrackets(p)) continue;
     if (/https?:\/\/|www\.|ISBN\s*\d/i.test(p)) continue;
-    if (!passesLanguagePurityAndNumberCheck(p, langObj)) continue;
+    if (!passesLanguagePurityAndNumberCheck(p, langObj, options)) continue;
 
     valid.push(p);
   }
@@ -107,11 +100,37 @@ function extractCleanParagraphs(rawExtract, langObj) {
 }
 
 /**
- * Queries a single random Wikipedia article on `{langCode}.wikipedia.org`.
+ * Hard Mode Japanese Helper:
+ * Searches for an authentic, unedited Kanji-dense paragraph (>= 50% Han characters)
+ * from the Wikipedia article instead of synthesizing artificial noun lists.
  */
-async function fetchSingleRandomWikiPage(langCode) {
+function findAuthenticKanjiDenseJapaneseParagraph(rawExtract, langObj) {
+  if (!rawExtract || !langObj || langObj.code !== 'ja') return null;
+
+  const candidates = extractCleanParagraphs(rawExtract, langObj, { allowLowKana: true });
+  let bestParagraph = null;
+  let bestKanjiRatio = 0;
+
+  for (const p of candidates) {
+    const allLetters = p.match(/\p{L}/gu) || [];
+    if (allLetters.length === 0) continue;
+    const kanjiMatches = p.match(/\p{Script=Han}/gu) || [];
+    const kanjiRatio = kanjiMatches.length / allLetters.length;
+    if (kanjiRatio >= 0.5 && kanjiRatio > bestKanjiRatio) {
+      bestKanjiRatio = kanjiRatio;
+      bestParagraph = p;
+    }
+  }
+
+  return bestParagraph;
+}
+
+/**
+ * Queries a single random Wikipedia article on `{wikiSubdomain}.wikipedia.org`.
+ */
+async function fetchSingleRandomWikiPage(wikiSubdomain) {
   const endpoint =
-    `https://${langCode}.wikipedia.org/w/api.php` +
+    `https://${wikiSubdomain}.wikipedia.org/w/api.php` +
     `?action=query&format=json&origin=*` +
     `&generator=random&grnnamespace=0&grnlimit=1` +
     `&prop=extracts|info&inprop=url&explaintext=1&exsectionformat=plain`;
@@ -163,6 +182,40 @@ function getEligibleTargetLanguages() {
 }
 
 /**
+ * Removes duplicate target languages from the prefetch queue (e.g., when switching
+ * from Endless Mode into 10 Tries Mode) and triggers replenishment if needed.
+ */
+function deduplicatePrefetchQueue() {
+  if (!Array.isArray(state.prefetchQueue) || state.prefetchQueue.length <= 1) {
+    updatePrefetchBadgesUI();
+    return;
+  }
+
+  const seen = new Set();
+  if (Array.isArray(state.history)) {
+    state.history.forEach(item => {
+      if (item && item.targetLang) seen.add(item.targetLang.code);
+    });
+  }
+  if (state.currentQuestion && state.currentQuestion.targetLang) {
+    seen.add(state.currentQuestion.targetLang.code);
+  }
+
+  const uniqueQueue = [];
+  for (const item of state.prefetchQueue) {
+    if (!item || !item.targetLang) continue;
+    if (!seen.has(item.targetLang.code)) {
+      seen.add(item.targetLang.code);
+      uniqueQueue.push(item);
+    }
+  }
+
+  state.prefetchQueue = uniqueQueue;
+  updatePrefetchBadgesUI();
+  ensurePrefetchQueue();
+}
+
+/**
  * Generates a complete valid round from a live Wikipedia article.
  * Pre-computes answer options for all 3 difficulties (`easy`, `medium`, `hard`)
  * so changing difficulty never resets preloaded articles.
@@ -173,21 +226,21 @@ async function generateValidArticleRound() {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const eligiblePool = getEligibleTargetLanguages();
     const targetLang = eligiblePool[Math.floor(Math.random() * eligiblePool.length)];
-    const batchPromises = Array.from({ length: 4 }, () => fetchSingleRandomWikiPage(targetLang.code));
+    const subdomain = targetLang.wikiSubdomain || targetLang.code;
+    const batchPromises = Array.from({ length: 4 }, () => fetchSingleRandomWikiPage(subdomain));
     const pages = await Promise.all(batchPromises);
 
     for (const page of pages) {
       if (!page || !page.extract || !page.title) continue;
 
-      let hardParagraph = null;
-      if (targetLang.code === 'ja' && Math.random() < 0.45) {
-        hardParagraph = extractHardModePureKanjiSnippet(page.extract);
-      }
+      const hardParagraph = targetLang.code === 'ja'
+        ? findAuthenticKanjiDenseJapaneseParagraph(page.extract, targetLang)
+        : null;
 
       const cleanParagraphs = extractCleanParagraphs(page.extract, targetLang);
       if (cleanParagraphs.length > 0) {
         const chosenParagraph = cleanParagraphs[Math.floor(Math.random() * Math.min(cleanParagraphs.length, 3))];
-        const articleUrl = page.fullurl || `https://${targetLang.code}.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`;
+        const articleUrl = page.fullurl || `https://${subdomain}.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`;
         const optionsByDifficulty = buildAllDifficultyOptions(targetLang);
 
         return {
@@ -207,7 +260,7 @@ async function generateValidArticleRound() {
   const fallbackSamples = [
     {
       code: 'es',
-      title: ' Literatura hispanoamericana',
+      title: 'Literatura hispanoamericana',
       url: 'https://es.wikipedia.org/wiki/Literatura_hispanoamericana',
       text: 'La literatura hispanoamericana abarca todas aquellas obras literarias escritas en lengua española por autores nacidos en los diversos países que conforman la región de América Latina desde el periodo colonial hasta la actualidad contemporánea.'
     },
@@ -330,6 +383,12 @@ async function ensurePrefetchQueue() {
       const item = await generateValidArticleRound();
       if (startEpoch !== state.prefetchEpoch) break;
       if (item) {
+        if (state.config.mode === 'ten_tries') {
+          const exists = state.prefetchQueue.some(q => q && q.targetLang && q.targetLang.code === item.targetLang.code);
+          if (exists && getEligibleTargetLanguages().length > 1) {
+            continue;
+          }
+        }
         state.prefetchQueue.push(item);
         updatePrefetchBadgesUI();
       }
